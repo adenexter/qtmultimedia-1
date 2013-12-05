@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Jolla Ltd.
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of the Qt Toolkit.
@@ -39,55 +39,14 @@
 **
 ****************************************************************************/
 
-#ifndef QSGVIDEONODE_P_H
-#define QSGVIDEONODE_P_H
+#include "qgstreamerelementcontrol_p.h"
 
-#include <QtQuick/qsgnode.h>
-#include <private/qtmultimediaquickdefs_p.h>
 
-#include <QtMultimedia/qvideoframe.h>
-#include <QtMultimedia/qvideosurfaceformat.h>
-#include <QtGui/qopenglfunctions.h>
-
-QT_BEGIN_NAMESPACE
-
-const QLatin1String QSGVideoNodeFactoryPluginKey("sgvideonodes");
-
-class Q_MULTIMEDIAQUICK_EXPORT QSGVideoNode : public QSGGeometryNode
+QGStreamerElementControl::QGStreamerElementControl(QObject *parent)
+    : QMediaControl(parent)
 {
-public:
-    QSGVideoNode();
+}
 
-    virtual void setCurrentFrame(const QVideoFrame &frame) = 0;
-    virtual QVideoFrame::PixelFormat pixelFormat() const = 0;
-
-    void setTexturedRectGeometry(const QRectF &boundingRect, const QRectF &textureRect, int orientation);
-
-private:
-    QRectF m_rect;
-    QRectF m_textureRect;
-    int m_orientation;
-};
-
-class Q_MULTIMEDIAQUICK_EXPORT QSGVideoNodeFactoryInterface
+QGStreamerElementControl::~QGStreamerElementControl()
 {
-public:
-    virtual QList<QVideoFrame::PixelFormat> supportedPixelFormats(QAbstractVideoBuffer::HandleType handleType) const = 0;
-    virtual QSGVideoNode *createNode(const QVideoSurfaceFormat &format) = 0;
-};
-
-#define QSGVideoNodeFactoryInterface_iid "org.qt-project.qt.sgvideonodefactory/5.2"
-Q_DECLARE_INTERFACE(QSGVideoNodeFactoryInterface, QSGVideoNodeFactoryInterface_iid)
-
-class Q_MULTIMEDIAQUICK_EXPORT QSGVideoNodeFactoryPlugin : public QObject, public QSGVideoNodeFactoryInterface
-{
-    Q_OBJECT
-    Q_INTERFACES(QSGVideoNodeFactoryInterface)
-public:
-    virtual QList<QVideoFrame::PixelFormat> supportedPixelFormats(QAbstractVideoBuffer::HandleType handleType) const = 0;
-    virtual QSGVideoNode *createNode(const QVideoSurfaceFormat &format) = 0;
-};
-
-QT_END_NAMESPACE
-
-#endif // QSGVIDEONODE_H
+}

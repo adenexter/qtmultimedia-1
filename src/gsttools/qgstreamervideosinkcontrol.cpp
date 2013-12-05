@@ -1,7 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
-** Copyright (C) 2012 Research In Motion
+** Copyright (C) 2013 Jolla Ltd.
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of the Qt Toolkit.
@@ -40,72 +39,35 @@
 **
 ****************************************************************************/
 
-#ifndef QDECLARATIVEVIDEOOUTPUT_BACKEND_P_H
-#define QDECLARATIVEVIDEOOUTPUT_BACKEND_P_H
+#include "qgstreamervideosinkcontrol_p.h"
 
-#include <QtCore/qpointer.h>
-#include <QtCore/qsize.h>
-#include <QtQuick/qquickitem.h>
-#include <QtQuick/qsgnode.h>
+#include <gst/gst.h>
 
-QT_BEGIN_NAMESPACE
-
-class QAbstractVideoSurface;
-class QDeclarativeVideoOutput;
-class QMediaService;
-
-class QDeclarativeVideoBackend
+QGStreamerVideoSinkControl::QGStreamerVideoSinkControl(QObject *parent)
+    : QGStreamerElementControl(parent)
+    , m_videoSink(0)
 {
-public:
-    explicit QDeclarativeVideoBackend(QDeclarativeVideoOutput *parent)
-        : q(parent)
-    {}
-
-    virtual ~QDeclarativeVideoBackend()
-    {}
-
-    virtual bool init(QMediaService *service) = 0;
-    virtual void releaseSource() = 0;
-    virtual void releaseControl() = 0;
-    virtual void itemChange(QQuickItem::ItemChange change,
-                            const QQuickItem::ItemChangeData &changeData) = 0;
-    virtual QSize nativeSize() const = 0;
-    virtual void updateGeometry() = 0;
-    virtual QSGNode *updatePaintNode(QSGNode *oldNode, QQuickItem::UpdatePaintNodeData *data) = 0;
-    virtual QAbstractVideoSurface *videoSurface() const = 0;
-
-    // The viewport, adjusted for the pixel aspect ratio
-    virtual QRectF adjustedViewport() const = 0;
-
-protected:
-    QDeclarativeVideoOutput *q;
-    QPointer<QMediaService> m_service;
-};
-
-/*
- * Helper - returns true if the given orientation has the same aspect as the default (e.g. 180*n)
- */
-namespace {
-
-inline bool qIsDefaultAspect(int o)
-{
-    return (o % 180) == 0;
 }
 
-/*
- * Return the orientation normalized to 0-359
- */
-inline int qNormalizedOrientation(int o)
+QGStreamerVideoSinkControl::~QGStreamerVideoSinkControl()
 {
-    // Negative orientations give negative results
-    int o2 = o % 360;
-    if (o2 < 0)
-        o2 += 360;
-    return o2;
+    if (m_videoSink)
+        gst_object_unref(GST_OBJECT(m_videoSink));
 }
 
+GstElement *QGStreamerVideoSinkControl::videoSink()
+{
+    return m_videoSink;
 }
 
-QT_END_NAMESPACE
-
-#endif
+void QGStreamerVideoSinkControl::setElement(GstElement *element)
+{
+    if (m_videoSink != element) {
+        if (m_videoSink)
+            gst_object_unref(GST_OBJECT(m_videoSink));
+        m_videoSink = element;
+        if (m_videoSink)
+            gst_object_ref(GST_OBJECT(element));
+        emit sinkChanged();
+    }
+}
