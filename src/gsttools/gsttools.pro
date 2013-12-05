@@ -53,7 +53,9 @@ PRIVATE_HEADERS += \
     qgstcodecsinfo_p.h \
     qgstreamervideoprobecontrol_p.h \
     qgstreameraudioprobecontrol_p.h \
-    qgstreamervideowindow_p.h
+    qgstreamervideosinkcontrol_p.h \
+    qgstreamervideowindow_p.h \
+    qgstreamerelementcontrol_p.h
 
 SOURCES += \
     qgstreamerbushelper.cpp \
@@ -69,7 +71,9 @@ SOURCES += \
     gstvideoconnector.c \
     qgstreamervideoprobecontrol.cpp \
     qgstreameraudioprobecontrol.cpp \
-    qgstreamervideowindow.cpp
+    qgstreamervideosinkcontrol.cpp \
+    qgstreamervideowindow.cpp \
+    qgstreamerelementcontrol.cpp
 
 qtHaveModule(widgets) {
     QT += multimediawidgets
