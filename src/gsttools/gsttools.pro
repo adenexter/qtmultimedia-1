@@ -50,7 +50,8 @@ PRIVATE_HEADERS += \
     qgstreamervideoprobecontrol_p.h \
     qgstreameraudioprobecontrol_p.h \
     qgstreamervideosinkcontrol_p.h \
-    qgstreamervideowindow_p.h
+    qgstreamervideowindow_p.h \
+    qgstreamerelementcontrol_p.h
 
 SOURCES += \
     qgstbufferpoolinterface.cpp \
@@ -68,7 +69,8 @@ SOURCES += \
     qgstreamervideoprobecontrol.cpp \
     qgstreameraudioprobecontrol.cpp \
     qgstreamervideosinkcontrol.cpp \
-    qgstreamervideowindow.cpp
+    qgstreamervideowindow.cpp \
+    qgstreamerelementcontrol.cpp
 
 
 qtHaveModule(widgets) {
