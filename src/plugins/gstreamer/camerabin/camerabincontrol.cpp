@@ -115,10 +115,6 @@ void CameraBinControl::setCaptureMode(QCamera::CaptureModes mode)
                         captureMode() == QCamera::CaptureStillImage ?
                             CamerabinResourcePolicy::ImageCaptureResources :
                             CamerabinResourcePolicy::VideoCaptureResources);
-
-            //due to bug in v4l2src, it's necessary to reload camera on video caps changes
-            //https://bugzilla.gnome.org/show_bug.cgi?id=649832
-            reloadLater();
         }
         emit captureModeChanged(mode);
     }
