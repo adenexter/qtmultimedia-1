@@ -197,7 +197,9 @@ void CameraBinControl::updateStatus()
     case QCamera::LoadedState:
         switch (sessionState) {
         case QCamera::UnloadedState:
-            m_status = QCamera::LoadingStatus;
+            m_status = m_resourcePolicy->isResourcesGranted()
+                    ? QCamera::LoadingStatus
+                    : QCamera::UnavailableStatus;
             break;
         case QCamera::LoadedState:
             m_status = QCamera::LoadedStatus;
@@ -210,7 +212,9 @@ void CameraBinControl::updateStatus()
     case QCamera::ActiveState:
         switch (sessionState) {
         case QCamera::UnloadedState:
-            m_status = QCamera::LoadingStatus;
+            m_status = m_resourcePolicy->isResourcesGranted()
+                    ? QCamera::LoadingStatus
+                    : QCamera::UnavailableStatus;
             break;
         case QCamera::LoadedState:
             m_status = QCamera::StartingStatus;

@@ -94,7 +94,6 @@ CameraBinService::CameraBinService(const QString &service, QObject *parent):
     QMediaService(parent)
 {
     m_captureSession = 0;
-    m_cameraControl = 0;
     m_metaDataControl = 0;
 
     m_audioInputSelector = 0;
@@ -110,7 +109,6 @@ CameraBinService::CameraBinService(const QString &service, QObject *parent):
 
     if (service == Q_MEDIASERVICE_CAMERA) {
         m_captureSession = new CameraBinSession(this);
-        m_cameraControl = new CameraBinControl(m_captureSession);
         m_videoInputDevice = new QGstreamerVideoInputDeviceControl(
                     m_captureSession->buildCameraSource(), m_captureSession);
         m_imageCaptureControl = new CameraBinImageCapture(m_captureSession);
@@ -212,7 +210,7 @@ QMediaControl *CameraBinService::requestControl(const char *name)
         return m_captureSession->mediaContainerControl();
 
     if (qstrcmp(name,QCameraControl_iid) == 0)
-        return m_cameraControl;
+        return m_captureSession->cameraControl();
 
     if (qstrcmp(name,QMetaDataWriterControl_iid) == 0)
         return m_metaDataControl;
