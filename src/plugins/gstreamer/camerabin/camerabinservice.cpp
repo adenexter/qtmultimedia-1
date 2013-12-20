@@ -62,6 +62,7 @@
 #include "camerabincapturebufferformat.h"
 #include "camerabincapturedestination.h"
 #include "camerabinviewfindersettings.h"
+#include "camerabinsensor.h"
 #include <private/qgstreamerbushelper_p.h>
 #include <private/qgstutils_p.h>
 
@@ -241,6 +242,9 @@ QMediaControl *CameraBinService::requestControl(const char *name)
 
     if (qstrcmp(name, QCameraViewfinderSettingsControl_iid) == 0)
         return m_captureSession->viewfinderSettingsControl();
+
+    if (qstrcmp(name, QCameraSensorControl_iid) == 0)
+        return m_captureSession->sensorControl();
 
     return 0;
 }

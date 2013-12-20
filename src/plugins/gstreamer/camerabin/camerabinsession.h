@@ -76,6 +76,7 @@ class CameraBinCaptureDestination;
 class CameraBinCaptureBufferFormat;
 class QGstreamerVideoRendererInterface;
 class CameraBinViewfinderSettings;
+class CameraBinSensor;
 
 class QGstreamerElementFactory
 {
@@ -141,6 +142,7 @@ public:
     CameraBinCaptureDestination *captureDestinationControl() const { return m_captureDestinationControl; }
     CameraBinCaptureBufferFormat *captureBufferFormatControl() const { return m_captureBufferFormatControl; }
     CameraBinViewfinderSettings *viewfinderSettingsControl() const { return m_viewfinderSettingsControl; }
+    CameraBinSensor *sensorControl() const { return m_sensorControl; }
 
     CameraBinRecorder *recorderControl() const { return m_recorderControl; }
     CameraBinContainer *mediaContainerControl() const { return m_mediaContainerControl; }
@@ -167,6 +169,8 @@ public:
     void stopVideoRecording();
 
     bool isMuted() const;
+
+    int sensorOrientation() const;
 
     bool processSyncMessage(const QGstreamerMessage &message);
     bool processBusMessage(const QGstreamerMessage &message);
@@ -242,6 +246,7 @@ private:
     CameraBinCaptureDestination *m_captureDestinationControl;
     CameraBinCaptureBufferFormat *m_captureBufferFormatControl;
     CameraBinViewfinderSettings *m_viewfinderSettingsControl;
+    CameraBinSensor *m_sensorControl;
 
     QGstreamerBusHelper *m_busHelper;
     GstBus* m_bus;

@@ -59,6 +59,7 @@
 
 #include "camerabincapturedestination.h"
 #include "camerabincapturebufferformat.h"
+#include "camerabinsensor.h"
 #include <private/qgstreamerbushelper_p.h>
 #include <private/qgstreamervideorendererinterface_p.h>
 #include <private/qgstutils_p.h>
@@ -170,6 +171,7 @@ CameraBinSession::CameraBinSession(QObject *parent)
     m_captureDestinationControl = new CameraBinCaptureDestination(this);
     m_captureBufferFormatControl = new CameraBinCaptureBufferFormat(this);
     m_viewfinderSettingsControl = new CameraBinViewfinderSettings(this);
+    m_sensorControl = new CameraBinSensor(this);
 
     QByteArray envFlags = qgetenv("QT_GSTREAMER_CAMERABIN_FLAGS");
     if (!envFlags.isEmpty())
@@ -1198,6 +1200,14 @@ QList<QSize> CameraBinSession::supportedResolutions(QPair<int,int> rate,
         *continuous = isContinuous;
 
     return res;
+}
+
+int CameraBinSession::sensorOrientation() const
+{
+    gint orientation = 0;
+    if (m_videoSrc && g_object_class_find_property(G_OBJECT_GET_CLASS(m_videoSrc), "sensor-mount-angle"))
+        g_object_get(m_videoSrc, "sensor-mount-angle", &orientation, NULL);
+    return orientation >= 0 ? orientation : 0;
 }
 
 QT_END_NAMESPACE
