@@ -122,7 +122,7 @@ static const QGstreamerMetaDataKeyLookup qt_gstreamerMetaDataKeys[] =
     { QMediaMetaData::AlbumTitle, GST_TAG_ALBUM, QVariant::String },
     { QMediaMetaData::AlbumArtist,  GST_TAG_ARTIST, QVariant::String},
     { QMediaMetaData::ContributingArtist, GST_TAG_PERFORMER, QVariant::String },
-#if (GST_VERSION_MAJOR >= 0) && (GST_VERSION_MINOR >= 10) && (GST_VERSION_MICRO >= 19)
+#if GST_CHECK_VERSION(0,10,23)
     { QMediaMetaData::Composer, GST_TAG_COMPOSER, QVariant::String },
 #endif
     //{ QMediaMetaData::Conductor, 0, QVariant::String },
@@ -150,7 +150,8 @@ static const QGstreamerMetaDataKeyLookup qt_gstreamerMetaDataKeys[] =
     { QMediaMetaData::LeadPerformer, GST_TAG_PERFORMER, QVariant::String },
     //{ QMediaMetaData::Writer, 0, QVariant::String },
 
-#if (GST_VERSION_MAJOR >= 0) && (GST_VERSION_MINOR >= 10) && (GST_VERSION_MICRO >= 30)
+
+#if GST_CHECK_VERSION(0,10,23)
     // Photos
     { QMediaMetaData::CameraManufacturer, GST_TAG_DEVICE_MANUFACTURER, QVariant::String },
     { QMediaMetaData::CameraModel, GST_TAG_DEVICE_MODEL, QVariant::String },

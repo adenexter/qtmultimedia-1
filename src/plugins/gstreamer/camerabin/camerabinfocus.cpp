@@ -47,6 +47,10 @@
 #include <QDebug>
 #include <QtCore/qmetaobject.h>
 
+#if !GST_CHECK_VERSION(1,0,0)
+typedef GstFocusMode GstPhotographyFocusMode;
+#endif
+
 //#define CAMERABIN_DEBUG 1
 
 QT_BEGIN_NAMESPACE
@@ -75,7 +79,7 @@ QCameraFocus::FocusModes CameraBinFocus::focusMode() const
 
 void CameraBinFocus::setFocusMode(QCameraFocus::FocusModes mode)
 {
-    GstFocusMode photographyMode;
+    GstPhotographyFocusMode photographyMode;
 
     switch (mode) {
     case QCameraFocus::AutoFocus:
@@ -154,9 +158,10 @@ QCameraFocusZoneList CameraBinFocus::focusZones() const
 void CameraBinFocus::handleFocusMessage(GstMessage *gm)
 {
     //it's a sync message, so it's called from non main thread
-    if (gst_structure_has_name(gm->structure, GST_PHOTOGRAPHY_AUTOFOCUS_DONE)) {
+    const GstStructure *structure = gst_message_get_structure(gm);
+    if (gst_structure_has_name(structure, GST_PHOTOGRAPHY_AUTOFOCUS_DONE)) {
         gint status = GST_PHOTOGRAPHY_FOCUS_STATUS_NONE;
-        gst_structure_get_int (gm->structure, "status", &status);
+        gst_structure_get_int (structure, "status", &status);
         QCamera::LockStatus focusStatus = m_focusStatus;
         QCamera::LockChangeReason reason = QCamera::UserRequest;
 

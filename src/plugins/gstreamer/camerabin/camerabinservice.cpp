@@ -63,10 +63,10 @@
 #include "camerabincapturedestination.h"
 #include "camerabinviewfindersettings.h"
 #include <private/qgstreamerbushelper_p.h>
+#include <private/qgstutils_p.h>
 
 #include <private/qgstreameraudioinputselector_p.h>
 #include <private/qgstreamervideoinputdevicecontrol_p.h>
-
 
 #if defined(HAVE_WIDGETS)
 #include <private/qgstreamervideowidget_p.h>
@@ -129,11 +129,9 @@ CameraBinService::CameraBinService(const QString &service, QObject *parent):
 #else
         m_videoWindow = new QGstreamerVideoWindow(this);
 #endif
-
 #if defined(HAVE_WIDGETS)
         m_videoWidgetControl = new QGstreamerVideoWidgetControl(this);
 #endif
-
     }
     if (!m_captureSession) {
         qWarning() << Q_FUNC_INFO << "Service type is not supported:" << service;
@@ -257,7 +255,7 @@ void CameraBinService::releaseControl(QMediaControl *control)
 
 bool CameraBinService::isCameraBinAvailable()
 {
-    GstElementFactory *factory = gst_element_factory_find("camerabin2");
+    GstElementFactory *factory = gst_element_factory_find(QT_GSTREAMER_CAMERABIN_ELEMENT_NAME);
     if (factory) {
         gst_object_unref(GST_OBJECT(factory));
         return true;

@@ -39,62 +39,15 @@
 **
 ****************************************************************************/
 
-#ifndef QGSTREAMERPLAYERSERVICE_H
-#define QGSTREAMERPLAYERSERVICE_H
-
-#include <QtCore/qobject.h>
-#include <QtCore/qiodevice.h>
-
-#include <qmediaservice.h>
+#include "qgstvideorendererplugin_p.h"
 
 QT_BEGIN_NAMESPACE
-class QMediaPlayerControl;
-class QMediaPlaylist;
-class QMediaPlaylistNavigator;
 
-class QGstreamerMetaData;
-class QGstreamerPlayerControl;
-class QGstreamerPlayerSession;
-class QGstreamerMetaDataProvider;
-class QGstreamerStreamsControl;
-class QGstreamerVideoRenderer;
-class QGstreamerVideoWidgetControl;
-class QGStreamerAvailabilityControl;
-class QGstreamerAudioProbeControl;
-class QGstreamerVideoProbeControl;
-
-class QGstreamerPlayerService : public QMediaService
+QGstVideoRendererPlugin::QGstVideoRendererPlugin(QObject *parent) :
+    QObject(parent)
 {
-    Q_OBJECT
-public:
-    QGstreamerPlayerService(QObject *parent = 0);
-    ~QGstreamerPlayerService();
-
-    QMediaControl *requestControl(const char *name);
-    void releaseControl(QMediaControl *control);
-
-private:
-    QGstreamerPlayerControl *m_control;
-    QGstreamerPlayerSession *m_session;
-    QGstreamerMetaDataProvider *m_metaData;
-    QGstreamerStreamsControl *m_streamsControl;
-    QGStreamerAvailabilityControl *m_availabilityControl;
-
-    QGstreamerAudioProbeControl *m_audioProbeControl;
-    QGstreamerVideoProbeControl *m_videoProbeControl;
-
-    QMediaControl *m_videoOutput;
-    QMediaControl *m_videoRenderer;
-    QMediaControl *m_videoWindow;
-#if defined(HAVE_WIDGETS)
-    QMediaControl *m_videoWidget;
-#endif
-
-    void increaseVideoRef();
-    void decreaseVideoRef();
-    int m_videoReferenceCount;
-};
+}
 
 QT_END_NAMESPACE
 
-#endif
+#include "moc_qgstvideorendererplugin_p.cpp"

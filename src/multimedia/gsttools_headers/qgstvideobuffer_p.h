@@ -57,6 +57,7 @@
 #include <QtCore/qvariant.h>
 
 #include <gst/gst.h>
+#include <gst/video/video.h>
 
 QT_BEGIN_NAMESPACE
 

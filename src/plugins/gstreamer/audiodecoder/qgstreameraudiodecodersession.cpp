@@ -93,7 +93,7 @@ QGstreamerAudioDecoderSession::QGstreamerAudioDecoderSession(QObject *parent)
      m_durationQueries(0)
 {
     // Create pipeline here
-    m_playbin = gst_element_factory_make("playbin2", NULL);
+    m_playbin = gst_element_factory_make(QT_GSTREAMER_PLAYBIN_ELEMENT_NAME, NULL);
 
     if (m_playbin != 0) {
         // Sort out messages
@@ -515,7 +515,7 @@ void QGstreamerAudioDecoderSession::processInvalidMedia(QAudioDecoder::Error err
     emit error(int(errorCode), errorString);
 }
 
-GstFlowReturn QGstreamerAudioDecoderSession::new_buffer(GstAppSink *, gpointer user_data)
+GstFlowReturn QGstreamerAudioDecoderSession::new_sample(GstAppSink *, gpointer user_data)
 {
     // "Note that the preroll buffer will also be returned as the first buffer when calling gst_app_sink_pull_buffer()."
     QGstreamerAudioDecoderSession *session = reinterpret_cast<QGstreamerAudioDecoderSession*>(user_data);
@@ -559,10 +559,9 @@ void QGstreamerAudioDecoderSession::addAppSink()
     GstAppSinkCallbacks callbacks;
     memset(&callbacks, 0, sizeof(callbacks));
 #if GST_CHECK_VERSION(1,0,0)
-    // ### Should perhaps also rename new_buffer to new_sample.
-    callbacks.new_sample = &new_buffer;
+    callbacks.new_sample = &new_sample;
 #else
-    callbacks.new_buffer = &new_buffer;
+    callbacks.new_buffer = &new_sample;
 #endif
     gst_app_sink_set_callbacks(m_appSink, &callbacks, this, NULL);
     gst_app_sink_set_max_buffers(m_appSink, MAX_BUFFERS_IN_QUEUE);
@@ -585,17 +584,11 @@ void QGstreamerAudioDecoderSession::removeAppSink()
 
 void QGstreamerAudioDecoderSession::updateDuration()
 {
-    GstFormat format = GST_FORMAT_TIME;
     gint64 gstDuration = 0;
     int duration = -1;
 
-#if GST_CHECK_VERSION(1,0,0)
-    if (m_playbin && gst_element_query_duration(m_playbin, format, &gstDuration))
+    if (m_playbin && qt_gst_element_query_duration(m_playbin, GST_FORMAT_TIME, &gstDuration))
         duration = gstDuration / 1000000;
-#else
-    if (m_playbin && gst_element_query_duration(m_playbin, &format, &gstDuration))
-        duration = gstDuration / 1000000;
-#endif
 
     if (m_duration != duration) {
         m_duration = duration;

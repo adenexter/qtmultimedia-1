@@ -45,6 +45,10 @@
 
 #include <QDebug>
 
+#if !GST_CHECK_VERSION(1,0,0)
+typedef GstSceneMode GstPhotographySceneMode;
+#endif
+
 QT_BEGIN_NAMESPACE
 
 CameraBinExposure::CameraBinExposure(CameraBinSession *session)
@@ -127,7 +131,7 @@ QVariant CameraBinExposure::actualValue(ExposureParameter parameter) const
     }
     case QCameraExposureControl::ExposureMode:
     {
-        GstSceneMode sceneMode;
+        GstPhotographySceneMode sceneMode;
         gst_photography_get_scene_mode(m_session->photography(), &sceneMode);
 
         switch (sceneMode) {
@@ -175,7 +179,7 @@ bool CameraBinExposure::setValue(ExposureParameter parameter, const QVariant& va
     case QCameraExposureControl::ExposureMode:
     {
         QCameraExposure::ExposureMode mode = QCameraExposure::ExposureMode(value.toInt());
-        GstSceneMode sceneMode;
+        GstPhotographySceneMode sceneMode;
         gst_photography_get_scene_mode(m_session->photography(), &sceneMode);
 
         switch (mode) {

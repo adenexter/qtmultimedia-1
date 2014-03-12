@@ -49,8 +49,10 @@
 #include <QtCore/qurl.h>
 
 #include <gst/gst.h>
+#include <gst/video/video.h>
 
 #include <private/qgstreamerbushelper_p.h>
+#include <private/qgstreamerbufferprobe_p.h>
 
 QT_BEGIN_NAMESPACE
 
@@ -78,7 +80,10 @@ public:
     virtual QList<QSize> supportedResolutions(qreal frameRate = -1) const = 0;
 };
 
-class QGstreamerCaptureSession : public QObject, public QGstreamerBusMessageFilter
+class QGstreamerCaptureSession
+        : public QObject
+        , public QGstreamerBusMessageFilter
+        , private QGstreamerBufferProbe
 {
     Q_OBJECT
     Q_PROPERTY(qint64 duration READ duration NOTIFY durationChanged)
@@ -139,7 +144,6 @@ public:
 
     void addProbe(QGstreamerAudioProbeControl* probe);
     void removeProbe(QGstreamerAudioProbeControl* probe);
-    static gboolean padAudioBufferProbe(GstPad *pad, GstBuffer *buffer, gpointer user_data);
 
 signals:
     void stateChanged(QGstreamerCaptureSession::State state);
@@ -164,6 +168,9 @@ public slots:
     void setVolume(qreal volume);
 
 private:
+    void probeCaps(GstCaps *caps);
+    bool probeBuffer(GstBuffer *buffer);
+
     enum PipelineMode { EmptyPipeline, PreviewPipeline, RecordingPipeline, PreviewAndRecordingPipeline };
 
     GstElement *buildEncodeBin();
@@ -188,9 +195,7 @@ private:
     QGstreamerCaptureSession::CaptureMode m_captureMode;
     QMap<QByteArray, QVariant> m_metaData;
 
-    QList<QGstreamerAudioProbeControl*> m_audioProbes;
-    QMutex m_audioProbeMutex;
-    int m_audioBufferProbeId;
+    QGstreamerAudioProbeControl *m_audioProbe;
 
     QGstreamerElementFactory *m_audioInputFactory;
     QGstreamerElementFactory *m_audioPreviewFactory;
@@ -224,6 +229,10 @@ private:
     GstElement *m_imageCaptureBin;
 
     GstElement *m_encodeBin;
+
+#if GST_CHECK_VERSION(1,0,0)
+    GstVideoInfo m_previewInfo;
+#endif
 
 public:
     bool m_passImage;

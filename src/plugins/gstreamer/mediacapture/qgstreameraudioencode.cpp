@@ -42,6 +42,7 @@
 #include "qgstreameraudioencode.h"
 #include "qgstreamercapturesession.h"
 #include "qgstreamermediacontainercontrol.h"
+#include <private/qgstutils_p.h>
 
 #include <QtCore/qdebug.h>
 
@@ -183,7 +184,7 @@ GstElement *QGstreamerAudioEncode::createEncoder()
 
     if (m_audioSettings.sampleRate() > 0 || m_audioSettings.channelCount() > 0) {
         GstCaps *caps = gst_caps_new_empty();
-        GstStructure *structure = gst_structure_new("audio/x-raw-int", NULL);
+        GstStructure *structure = qt_gst_structure_new_empty(QT_GSTREAMER_RAW_AUDIO_MIME);
 
         if (m_audioSettings.sampleRate() > 0)
             gst_structure_set(structure, "rate", G_TYPE_INT, m_audioSettings.sampleRate(), NULL );

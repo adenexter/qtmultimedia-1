@@ -89,106 +89,16 @@ QMultimedia::SupportEstimate QGstreamerAudioDecoderServicePlugin::hasSupport(con
     return QGstUtils::hasSupport(mimeType, codecs, m_supportedMimeTypeSet);
 }
 
+static bool isDecoderOrDemuxer(GstElementFactory *factory)
+{
+    return gst_element_factory_list_is_type(factory, GST_ELEMENT_FACTORY_TYPE_DEMUXER)
+                || gst_element_factory_list_is_type(factory, GST_ELEMENT_FACTORY_TYPE_DECODER
+                            | GST_ELEMENT_FACTORY_TYPE_MEDIA_AUDIO);
+}
+
 void QGstreamerAudioDecoderServicePlugin::updateSupportedMimeTypes() const
 {
-    //enumerate supported mime types
-    gst_init(NULL, NULL);
-
-    GList *plugins, *orig_plugins;
-#if GST_CHECK_VERSION(1,0,0)
-    orig_plugins = plugins = gst_registry_get_plugin_list (gst_registry_get());
-#else
-    orig_plugins = plugins = gst_default_registry_get_plugin_list ();
-#endif
-    while (plugins) {
-        GList *features, *orig_features;
-
-        GstPlugin *plugin = (GstPlugin *) (plugins->data);
-        plugins = g_list_next (plugins);
-
-#if GST_CHECK_VERSION(1,0,0)
-        if (GST_OBJECT_FLAG_IS_SET(plugin, GST_PLUGIN_FLAG_BLACKLISTED))
-            continue;
-
-        GstRegistry *registry = gst_registry_get();
-#else
-        if (plugin->flags & (1<<1)) //GST_PLUGIN_FLAG_BLACKLISTED
-            continue;
-
-        GstRegistry *registry = gst_registry_get_default();
-#endif
-        orig_features = features = gst_registry_get_feature_list_by_plugin(registry,
-                                                                           gst_plugin_get_name(plugin));
-        while (features) {
-            if (!G_UNLIKELY(features->data == NULL)) {
-                GstPluginFeature *feature = GST_PLUGIN_FEATURE(features->data);
-                if (GST_IS_ELEMENT_FACTORY (feature)) {
-                    GstElementFactory *factory = GST_ELEMENT_FACTORY(gst_plugin_feature_load(feature));
-                    if (factory
-                       && gst_element_factory_get_num_pad_templates(factory) > 0
-#if GST_CHECK_VERSION(1,0,0)
-                       && (qstrcmp(gst_element_factory_get_metadata(factory, GST_ELEMENT_METADATA_KLASS), "Codec/Decoder/Audio") == 0
-                          || qstrcmp(gst_element_factory_get_metadata(factory, GST_ELEMENT_METADATA_KLASS), "Codec/Demux") == 0 )
-#else
-                       && (qstrcmp(factory->details.klass, "Codec/Decoder/Audio") == 0
-                           || qstrcmp(factory->details.klass, "Codec/Demux") == 0 )
-#endif
-                        ) {
-                        const GList *pads = gst_element_factory_get_static_pad_templates(factory);
-                        while (pads) {
-                            GstStaticPadTemplate *padtemplate = (GstStaticPadTemplate*)(pads->data);
-                            pads = g_list_next (pads);
-                            if (padtemplate->direction != GST_PAD_SINK)
-                                continue;
-                            if (padtemplate->static_caps.string) {
-                                GstCaps *caps = gst_static_caps_get(&padtemplate->static_caps);
-                                if (!gst_caps_is_any (caps) && ! gst_caps_is_empty (caps)) {
-                                    for (guint i = 0; i < gst_caps_get_size(caps); i++) {
-                                        GstStructure *structure = gst_caps_get_structure(caps, i);
-                                        QString nameLowcase = QString(gst_structure_get_name (structure)).toLower();
-
-                                        m_supportedMimeTypeSet.insert(nameLowcase);
-                                        if (nameLowcase.contains("mpeg")) {
-                                            //Because mpeg version number is only included in the detail
-                                            //description,  it is necessary to manually extract this information
-                                            //in order to match the mime type of mpeg4.
-                                            const GValue *value = gst_structure_get_value(structure, "mpegversion");
-                                            if (value) {
-                                                gchar *str = gst_value_serialize (value);
-                                                QString versions(str);
-                                                QStringList elements = versions.split(QRegExp("\\D+"), QString::SkipEmptyParts);
-                                                foreach (const QString &e, elements)
-                                                    m_supportedMimeTypeSet.insert(nameLowcase + e);
-                                                g_free (str);
-                                            }
-                                        }
-                                    }
-                                }
-                                gst_caps_unref(caps);
-                            }
-                        }
-                        gst_object_unref (factory);
-                    }
-                } else if (GST_IS_TYPE_FIND_FACTORY(feature)) {
-                    QString name(gst_plugin_feature_get_name(feature));
-                    if (name.contains('/')) //filter out any string without '/' which is obviously not a mime type
-                        m_supportedMimeTypeSet.insert(name.toLower());
-                }
-            }
-            features = g_list_next (features);
-        }
-        gst_plugin_feature_list_free (orig_features);
-    }
-    gst_plugin_list_free (orig_plugins);
-
-#if defined QT_SUPPORTEDMIMETYPES_DEBUG
-    QStringList list = m_supportedMimeTypeSet.toList();
-    list.sort();
-    if (qgetenv("QT_DEBUG_PLUGINS").toInt() > 0) {
-        foreach (const QString &type, list)
-            qDebug() << type;
-    }
-#endif
+    m_supportedMimeTypeSet = QGstUtils::supportedMimeTypes(isDecoderOrDemuxer);
 }
 
 QStringList QGstreamerAudioDecoderServicePlugin::supportedMimeTypes() const

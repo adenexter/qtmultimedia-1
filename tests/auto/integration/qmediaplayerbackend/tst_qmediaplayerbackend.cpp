@@ -643,7 +643,7 @@ void tst_QMediaPlayerBackend::seekPauseSeek()
 
     {
         QVideoFrame frame = surface->m_frameList.back();
-        const qint64 elapsed = frame.startTime() - position;
+        const qint64 elapsed = (frame.startTime() / 1000) - position; // frame.startTime() is microsecond, position is milliseconds.
         QVERIFY2(qAbs(elapsed) < (qint64)500, QByteArray::number(elapsed).constData());
         QCOMPARE(frame.width(), 160);
         QCOMPARE(frame.height(), 120);
@@ -667,7 +667,7 @@ void tst_QMediaPlayerBackend::seekPauseSeek()
 
     {
         QVideoFrame frame = surface->m_frameList.back();
-        const qint64 elapsed = frame.startTime() - position;
+        const qint64 elapsed = (frame.startTime() / 1000) - position;
         QVERIFY2(qAbs(elapsed) < (qint64)500, QByteArray::number(elapsed).constData());
         QCOMPARE(frame.width(), 160);
         QCOMPARE(frame.height(), 120);

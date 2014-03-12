@@ -127,19 +127,9 @@ public:
 
     void addProbe(QGstreamerVideoProbeControl* probe);
     void removeProbe(QGstreamerVideoProbeControl* probe);
-#if GST_CHECK_VERSION(1,0,0)
-    static GstPadProbeReturn padVideoBufferProbe(GstPad *pad, GstPadProbeInfo *info, gpointer user_data);
-#else
-    static gboolean padVideoBufferProbe(GstPad *pad, GstBuffer *buffer, gpointer user_data);
-#endif
 
     void addProbe(QGstreamerAudioProbeControl* probe);
     void removeProbe(QGstreamerAudioProbeControl* probe);
-#if GST_CHECK_VERSION(1,0,0)
-    static GstPadProbeReturn padAudioBufferProbe(GstPad *pad, GstPadProbeInfo* info, gpointer user_data);
-#else
-    static gboolean padAudioBufferProbe(GstPad *pad, GstBuffer *buffer, gpointer user_data);
-#endif
 
     void endOfMediaReset();
 
@@ -177,7 +167,9 @@ signals:
 private slots:
     void getStreamsInfo();
     void setSeekable(bool);
+#if !GST_CHECK_VERSION(1,0,0)
     void finishVideoOutputChange();
+#endif
     void updateVideoRenderer();
     void updateVideoResolutionTag();
     void updateVolume();
@@ -188,7 +180,9 @@ private:
     static void playbinNotifySource(GObject *o, GParamSpec *p, gpointer d);
     static void handleVolumeChange(GObject *o, GParamSpec *p, gpointer d);
     static void handleMutedChange(GObject *o, GParamSpec *p, gpointer d);
+#if !GST_CHECK_VERSION(1,0,0)
     static void insertColorSpaceElement(GstElement *element, gpointer data);
+#endif
     static void handleElementAdded(GstBin *bin, GstElement *element, QGstreamerPlayerSession *session);
     static void handleStreamsChange(GstBin *bin, gpointer user_data);
     static GstAutoplugSelectResult handleAutoplugSelect(GstBin *bin, GstPad *pad, GstCaps *caps, GstElementFactory *factory, QGstreamerPlayerSession *session);
@@ -210,14 +204,15 @@ private:
     QGstreamerBusHelper* m_busHelper;
     GstElement* m_playbin;
 
+    GstElement* m_videoSink;
+#if !GST_CHECK_VERSION(1,0,0)
     GstElement* m_videoOutputBin;
     GstElement* m_videoIdentity;
     GstElement* m_colorSpace;
     bool m_usingColorspaceElement;
-    GstElement* m_videoSink;
     GstElement* m_pendingVideoSink;
     GstElement* m_nullVideoSink;
-
+#endif
     GstElement* m_audioSink;
 
     GstBus* m_bus;
@@ -233,13 +228,8 @@ private:
     QList<QMediaStreamsControl::StreamType> m_streamTypes;
     QMap<QMediaStreamsControl::StreamType, int> m_playbin2StreamOffset;
 
-    QList<QGstreamerVideoProbeControl*> m_videoProbes;
-    QMutex m_videoProbeMutex;
-    int m_videoBufferProbeId;
-
-    QList<QGstreamerAudioProbeControl*> m_audioProbes;
-    QMutex m_audioProbeMutex;
-    int m_audioBufferProbeId;
+    QGstreamerVideoProbeControl *m_videoProbe;
+    QGstreamerAudioProbeControl *m_audioProbe;
 
     int m_volume;
     qreal m_playbackRate;

@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Jolla Ltd.
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of the Qt Toolkit.
@@ -39,62 +39,48 @@
 **
 ****************************************************************************/
 
-#ifndef QGSTREAMERPLAYERSERVICE_H
-#define QGSTREAMERPLAYERSERVICE_H
+#ifndef QGSTREAMERBUFFERPROBE_H
+#define QGSTREAMERBUFFERPROBE_H
 
-#include <QtCore/qobject.h>
-#include <QtCore/qiodevice.h>
+#include <gst/gst.h>
 
-#include <qmediaservice.h>
+#include <QtCore/qglobal.h>
 
 QT_BEGIN_NAMESPACE
-class QMediaPlayerControl;
-class QMediaPlaylist;
-class QMediaPlaylistNavigator;
 
-class QGstreamerMetaData;
-class QGstreamerPlayerControl;
-class QGstreamerPlayerSession;
-class QGstreamerMetaDataProvider;
-class QGstreamerStreamsControl;
-class QGstreamerVideoRenderer;
-class QGstreamerVideoWidgetControl;
-class QGStreamerAvailabilityControl;
-class QGstreamerAudioProbeControl;
-class QGstreamerVideoProbeControl;
-
-class QGstreamerPlayerService : public QMediaService
+class QGstreamerBufferProbe
 {
-    Q_OBJECT
 public:
-    QGstreamerPlayerService(QObject *parent = 0);
-    ~QGstreamerPlayerService();
+    enum Flags
+    {
+        ProbeCaps       = 0x01,
+        ProbeBuffers    = 0x02,
+        ProbeAll    = ProbeCaps | ProbeBuffers
+    };
 
-    QMediaControl *requestControl(const char *name);
-    void releaseControl(QMediaControl *control);
+    explicit QGstreamerBufferProbe(Flags flags = ProbeAll);
+    virtual ~QGstreamerBufferProbe();
+
+    void addProbeToPad(GstPad *pad, bool downstream = true);
+    void removeProbeFromPad(GstPad *pad);
+
+protected:
+    virtual void probeCaps(GstCaps *caps);
+    virtual bool probeBuffer(GstBuffer *buffer);
 
 private:
-    QGstreamerPlayerControl *m_control;
-    QGstreamerPlayerSession *m_session;
-    QGstreamerMetaDataProvider *m_metaData;
-    QGstreamerStreamsControl *m_streamsControl;
-    QGStreamerAvailabilityControl *m_availabilityControl;
-
-    QGstreamerAudioProbeControl *m_audioProbeControl;
-    QGstreamerVideoProbeControl *m_videoProbeControl;
-
-    QMediaControl *m_videoOutput;
-    QMediaControl *m_videoRenderer;
-    QMediaControl *m_videoWindow;
-#if defined(HAVE_WIDGETS)
-    QMediaControl *m_videoWidget;
+#if GST_CHECK_VERSION(1,0,0)
+    static GstPadProbeReturn capsProbe(GstPad *pad, GstPadProbeInfo *info, gpointer user_data);
+    static GstPadProbeReturn bufferProbe(GstPad *pad, GstPadProbeInfo *info, gpointer user_data);
+    int m_capsProbeId;
+#else
+    static gboolean bufferProbe(GstElement *element, GstBuffer *buffer, gpointer user_data);
+    GstCaps *m_caps;
 #endif
-
-    void increaseVideoRef();
-    void decreaseVideoRef();
-    int m_videoReferenceCount;
+    int m_bufferProbeId;
+    const Flags m_flags;
 };
 
 QT_END_NAMESPACE
 
-#endif
+#endif // QGSTREAMERAUDIOPROBECONTROL_H

@@ -24,6 +24,7 @@ mir: {
     DEFINES += HAVE_MIR
 }
 
+
 config_resourcepolicy {
     DEFINES += HAVE_RESOURCE_POLICY
     PKGCONFIG += libresourceqt5

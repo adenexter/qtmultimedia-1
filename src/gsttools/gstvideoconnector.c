@@ -423,6 +423,8 @@ gst_video_connector_resend_new_segment(GstElement * element, gboolean emitFailed
 #if GST_CHECK_VERSION(1,0,0)
 static GstPadProbeReturn gst_video_connector_new_event_probe(GstPad *pad, GstPadProbeInfo *info, gpointer object)
 {
+    (void) pad;
+
     GstVideoConnector *connector = GST_VIDEO_CONNECTOR (object);
     GstEvent *event = gst_pad_probe_info_get_event(info);
 

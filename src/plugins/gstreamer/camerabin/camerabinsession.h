@@ -51,6 +51,7 @@
 #ifdef HAVE_GST_PHOTOGRAPHY
 #include <gst/interfaces/photography.h>
 #endif
+#include <gst/video/video.h>
 
 #include <private/qgstreamerbushelper_p.h>
 #include "qcamera.h"
@@ -83,9 +84,10 @@ public:
 };
 
 
-class CameraBinSession : public QObject,
-                         public QGstreamerBusMessageFilter,
-                         public QGstreamerSyncMessageFilter
+class CameraBinSession
+    : public QObject
+    , public QGstreamerBusMessageFilter
+    , public QGstreamerSyncMessageFilter
 {
     Q_OBJECT
     Q_PROPERTY(qint64 duration READ duration NOTIFY durationChanged)
@@ -195,6 +197,13 @@ private:
     void setupCaptureResolution();
     void setAudioCaptureCaps();
     static void updateBusyStatus(GObject *o, GParamSpec *p, gpointer d);
+
+    void probeCaps(GstCaps *caps);
+    bool probeBuffer(GstBuffer *buffer);
+
+#if GST_CHECK_VERSION(1,0,0)
+    GstVideoInfo m_previewInfo;
+#endif
 
     QUrl m_sink;
     QUrl m_actualSink;

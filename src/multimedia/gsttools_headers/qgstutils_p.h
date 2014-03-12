@@ -56,13 +56,31 @@
 #include <QtCore/qmap.h>
 #include <QtCore/qset.h>
 #include <gst/gst.h>
+#include <gst/video/video.h>
 #include <qaudioformat.h>
+#include <QtMultimedia/qabstractvideobuffer.h>
+#include <QtMultimedia/qvideoframe.h>
+#include <QDebug>
+
+#if GST_CHECK_VERSION(1,0,0)
+# define QT_GSTREAMER_PLAYBIN_ELEMENT_NAME "playbin"
+# define QT_GSTREAMER_CAMERABIN_ELEMENT_NAME "camerabin"
+# define QT_GSTREAMER_COLORCONVERSION_ELEMENT_NAME "videoconvert"
+# define QT_GSTREAMER_RAW_AUDIO_MIME "audio/x-raw"
+#else
+# define QT_GSTREAMER_PLAYBIN_ELEMENT_NAME "playbin2"
+# define QT_GSTREAMER_CAMERABIN_ELEMENT_NAME "camerabin2"
+# define QT_GSTREAMER_COLORCONVERSION_ELEMENT_NAME "ffmpegcolorspace"
+# define QT_GSTREAMER_RAW_AUDIO_MIME "audio/x-raw-int"
+#endif
 
 QT_BEGIN_NAMESPACE
 
 class QSize;
 class QVariant;
 class QByteArray;
+class QImage;
+class QVideoSurfaceFormat;
 
 namespace QGstUtils {
     QMap<QByteArray, QVariant> gstTagListToMap(const GstTagList *list);
@@ -75,14 +93,38 @@ namespace QGstUtils {
 #else
     QAudioFormat audioFormatForBuffer(GstBuffer *buffer);
 #endif
-    GstCaps *capsForAudioFormat(QAudioFormat format);
+    GstCaps *capsForAudioFormat(const QAudioFormat &format);
     void initializeGst();
     QMultimedia::SupportEstimate hasSupport(const QString &mimeType,
                                              const QStringList &codecs,
                                              const QSet<QString> &supportedMimeTypeSet);
+    QSet<QString> supportedMimeTypes(bool (*isValidFactory)(GstElementFactory *factory));
+
+#if GST_CHECK_VERSION(1,0,0)
+    QImage bufferToImage(GstBuffer *buffer, const GstVideoInfo &info);
+#else
+    QImage bufferToImage(GstBuffer *buffer);
+#endif
+    QVideoSurfaceFormat formatForCaps(
+            GstCaps *caps,
+            int *bytesPerLine = 0,
+            QAbstractVideoBuffer::HandleType handleType = QAbstractVideoBuffer::NoHandle);
+    GstCaps *capsForFormats(const QList<QVideoFrame::PixelFormat> &formats);
+    void setFrameTimeStamps(QVideoFrame *frame, GstBuffer *buffer);
+
+    void setMetaData(GstElement *element, const QMap<QByteArray, QVariant> &data);
+    void setMetaData(GstBin *bin, const QMap<QByteArray, QVariant> &data);
+
+    GstCaps *videoFilterCaps();
 }
 
 void qt_gst_object_ref_sink(gpointer object);
+GstCaps *qt_gst_pad_get_current_caps(GstPad *pad);
+GstStructure *qt_gst_structure_new_empty(const char *name);
+gboolean qt_gst_element_query_position(GstElement *element, GstFormat format, gint64 *cur);
+gboolean qt_gst_element_query_duration(GstElement *element, GstFormat format, gint64 *cur);
+
+QDebug operator <<(QDebug debug, GstCaps *caps);
 
 QT_END_NAMESPACE
 

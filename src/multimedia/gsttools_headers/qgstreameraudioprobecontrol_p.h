@@ -47,26 +47,32 @@
 #include <QtCore/qmutex.h>
 #include <qaudiobuffer.h>
 
+#include <private/qgstreamerbufferprobe_p.h>
+
 QT_BEGIN_NAMESPACE
 
-class QGstreamerAudioProbeControl : public QMediaAudioProbeControl
+class QGstreamerAudioProbeControl : public QMediaAudioProbeControl,  public QGstreamerBufferProbe
 {
     Q_OBJECT
 public:
     explicit QGstreamerAudioProbeControl(QObject *parent);
     virtual ~QGstreamerAudioProbeControl();
-#if GST_CHECK_VERSION(1,0,0)
-    void bufferProbed(GstBuffer* buffer, GstCaps* caps);
-#else
-    void bufferProbed(GstBuffer* buffer);
-#endif
+
+    void reference() { ++m_referenceCount; }
+    bool release() { return --m_referenceCount == 0; }
+
+protected:
+    void probeCaps(GstCaps *caps);
+    bool probeBuffer(GstBuffer *buffer);
 
 private slots:
     void bufferProbed();
 
 private:
     QAudioBuffer m_pendingBuffer;
+    QAudioFormat m_format;
     QMutex m_bufferMutex;
+    int m_referenceCount;
 };
 
 QT_END_NAMESPACE

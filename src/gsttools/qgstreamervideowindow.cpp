@@ -56,6 +56,7 @@
 
 QGstreamerVideoWindow::QGstreamerVideoWindow(QObject *parent, const char *elementName)
     : QVideoWindowControl(parent)
+    , QGstreamerBufferProbe(QGstreamerBufferProbe::ProbeCaps)
     , m_videoSink(0)
     , m_windowId(0)
     , m_aspectRatioMode(Qt::KeepAspectRatio)
@@ -65,17 +66,14 @@ QGstreamerVideoWindow::QGstreamerVideoWindow(QObject *parent, const char *elemen
     if (elementName) {
         m_videoSink = gst_element_factory_make(elementName, NULL);
     } else {
-        m_videoSink = gst_element_factory_make("xvimagesink", NULL);
+        m_videoSink = gst_element_factory_make("autoimagesink", NULL);
     }
 
     if (m_videoSink) {
         qt_gst_object_ref_sink(GST_OBJECT(m_videoSink)); //Take ownership
+
         GstPad *pad = gst_element_get_static_pad(m_videoSink, "sink");
-#if GST_CHECK_VERSION(1,0,0)
-        m_bufferProbeId = gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_BUFFER, padBufferProbe, this, NULL);
-#else
-        m_bufferProbeId = gst_pad_add_buffer_probe(pad, G_CALLBACK(padBufferProbe), this);
-#endif
+        addProbeToPad(pad);
         gst_object_unref(GST_OBJECT(pad));
     }
     else
@@ -84,8 +82,12 @@ QGstreamerVideoWindow::QGstreamerVideoWindow(QObject *parent, const char *elemen
 
 QGstreamerVideoWindow::~QGstreamerVideoWindow()
 {
-    if (m_videoSink)
+    if (m_videoSink) {
+        GstPad *pad = gst_element_get_static_pad(m_videoSink,"sink");
+        removeProbeFromPad(pad);
+        gst_object_unref(GST_OBJECT(pad));
         gst_object_unref(GST_OBJECT(m_videoSink));
+    }
 }
 
 WId QGstreamerVideoWindow::winId() const
@@ -128,9 +130,6 @@ bool QGstreamerVideoWindow::processSyncMessage(const QGstreamerMessage &message)
 
         gst_video_overlay_set_window_handle(GST_VIDEO_OVERLAY(m_videoSink), m_windowId);
 
-        GstPad *pad = gst_element_get_static_pad(m_videoSink,"sink");
-        m_bufferProbeId = gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_BUFFER, padBufferProbe, this, NULL);
-
         return true;
     }
 #else
@@ -139,10 +138,6 @@ bool QGstreamerVideoWindow::processSyncMessage(const QGstreamerMessage &message)
             m_videoSink && GST_IS_X_OVERLAY(m_videoSink)) {
 
         gst_x_overlay_set_xwindow_id(GST_X_OVERLAY(m_videoSink), m_windowId);
-
-        GstPad *pad = gst_element_get_static_pad(m_videoSink,"sink");
-        m_bufferProbeId = gst_pad_add_buffer_probe(pad, G_CALLBACK(padBufferProbe), this);
-        gst_object_unref(GST_OBJECT(pad));
 
         return true;
     }
@@ -356,47 +351,22 @@ QSize QGstreamerVideoWindow::nativeSize() const
     return m_nativeSize;
 }
 
-#if GST_CHECK_VERSION(1,0,0)
-GstPadProbeReturn QGstreamerVideoWindow::padBufferProbe(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
-#else
-void QGstreamerVideoWindow::padBufferProbe(GstPad *pad, GstBuffer * /* buffer */, gpointer user_data)
-#endif
+void QGstreamerVideoWindow::probeCaps(GstCaps *caps)
 {
-    QGstreamerVideoWindow *control = reinterpret_cast<QGstreamerVideoWindow*>(user_data);
-    QMetaObject::invokeMethod(control, "updateNativeVideoSize", Qt::QueuedConnection);
-
-#if GST_CHECK_VERSION(1,0,0)
-    Q_UNUSED(pad);
-    Q_UNUSED(info);
-    return GST_PAD_PROBE_REMOVE;
-#else
-    gst_pad_remove_buffer_probe(pad, control->m_bufferProbeId);
-#endif
+    QSize resolution = QGstUtils::capsCorrectedResolution(caps);
+    QMetaObject::invokeMethod(
+                this,
+                "updateNativeVideoSize",
+                Qt::QueuedConnection,
+                Q_ARG(QSize, resolution));
 }
 
-void QGstreamerVideoWindow::updateNativeVideoSize()
+void QGstreamerVideoWindow::updateNativeVideoSize(const QSize &size)
 {
-    const QSize oldSize = m_nativeSize;
-    m_nativeSize = QSize();
-
-    if (m_videoSink) {
-        //find video native size to update video widget size hint
-        GstPad *pad = gst_element_get_static_pad(m_videoSink,"sink");
-#if GST_CHECK_VERSION(1,0,0)
-        GstCaps *caps = gst_pad_get_current_caps(pad);
-#else
-        GstCaps *caps = gst_pad_get_negotiated_caps(pad);
-#endif
-        gst_object_unref(GST_OBJECT(pad));
-
-        if (caps) {
-            m_nativeSize = QGstUtils::capsCorrectedResolution(caps);
-            gst_caps_unref(caps);
-        }
-    }
-
-    if (m_nativeSize != oldSize)
+    if (m_nativeSize != size) {
+        m_nativeSize = size;
         emit nativeSizeChanged();
+    }
 }
 
 GstElement *QGstreamerVideoWindow::videoSink()

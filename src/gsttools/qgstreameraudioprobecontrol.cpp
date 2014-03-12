@@ -44,50 +44,50 @@
 
 QGstreamerAudioProbeControl::QGstreamerAudioProbeControl(QObject *parent)
     : QMediaAudioProbeControl(parent)
+    , m_referenceCount(0)
 {
-
 }
 
 QGstreamerAudioProbeControl::~QGstreamerAudioProbeControl()
 {
-
 }
 
-#if GST_CHECK_VERSION(1,0,0)
-void QGstreamerAudioProbeControl::bufferProbed(GstBuffer* buffer, GstCaps* caps)
+void QGstreamerAudioProbeControl::probeCaps(GstCaps *caps)
 {
-#else
-void QGstreamerAudioProbeControl::bufferProbed(GstBuffer* buffer)
-{
-    GstCaps* caps = gst_buffer_get_caps(buffer);
-#endif
-    if (!caps)
-        return;
-
     QAudioFormat format = QGstUtils::audioFormatForCaps(caps);
-    gst_caps_unref(caps);
-    if (!format.isValid())
-        return;
 
-    #if GST_CHECK_VERSION(1,0,0)
+    QMutexLocker locker(&m_bufferMutex);
+    m_format = format;
+}
 
+bool QGstreamerAudioProbeControl::probeBuffer(GstBuffer *buffer)
+{
+    qint64 position = GST_BUFFER_TIMESTAMP(buffer);
+    position = position >= 0
+            ? position / G_GINT64_CONSTANT(1000) // microseconds
+            : -1;
+
+    QByteArray data;
+#if GST_CHECK_VERSION(1,0,0)
     GstMapInfo info;
-
-    gst_buffer_map (buffer, &info, GST_MAP_READ);
-    QAudioBuffer audioBuffer = QAudioBuffer(QByteArray((const char*)info.data, info.size), format);
-    gst_buffer_unmap(buffer, &info);
-
-    #else
-
-    QAudioBuffer audioBuffer = QAudioBuffer(QByteArray((const char*)buffer->data, buffer->size), format);
-
-    #endif
-
-    {
-        QMutexLocker locker(&m_bufferMutex);
-        m_pendingBuffer = audioBuffer;
-        QMetaObject::invokeMethod(this, "bufferProbed", Qt::QueuedConnection);
+    if (gst_buffer_map(buffer, &info, GST_MAP_READ)) {
+        data = QByteArray(reinterpret_cast<const char *>(info.data), info.size);
+        gst_buffer_unmap(buffer, &info);
+    } else {
+        return true;
     }
+#else
+    data = QByteArray(reinterpret_cast<const char *>(buffer->data), buffer->size);
+#endif
+
+    QMutexLocker locker(&m_bufferMutex);
+    if (m_format.isValid()) {
+        if (!m_pendingBuffer.isValid())
+            QMetaObject::invokeMethod(this, "bufferProbed", Qt::QueuedConnection);
+        m_pendingBuffer = QAudioBuffer(data, m_format, position / 1000);
+    }
+
+    return true;
 }
 
 void QGstreamerAudioProbeControl::bufferProbed()
@@ -98,6 +98,7 @@ void QGstreamerAudioProbeControl::bufferProbed()
         if (!m_pendingBuffer.isValid())
             return;
         audioBuffer = m_pendingBuffer;
+        m_pendingBuffer = QAudioBuffer();
     }
     emit audioBufferProbed(audioBuffer);
 }

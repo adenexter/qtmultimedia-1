@@ -39,60 +39,71 @@
 **
 ****************************************************************************/
 
-#ifndef QGSTREAMERPLAYERSERVICE_H
-#define QGSTREAMERPLAYERSERVICE_H
+#ifndef QGSTBUFFERPOOLINTERFACE_P_H
+#define QGSTBUFFERPOOLINTERFACE_P_H
 
+//
+//  W A R N I N G
+//  -------------
+//
+// This file is not part of the Qt API. It exists purely as an
+// implementation detail. This header file may change from version to
+// version without notice, or even be removed.
+//
+// We mean it.
+//
+
+#include <qabstractvideobuffer.h>
+#include <qvideosurfaceformat.h>
 #include <QtCore/qobject.h>
-#include <QtCore/qiodevice.h>
+#include <QtCore/qplugin.h>
 
-#include <qmediaservice.h>
+#include <gst/gst.h>
 
 QT_BEGIN_NAMESPACE
-class QMediaPlayerControl;
-class QMediaPlaylist;
-class QMediaPlaylistNavigator;
 
-class QGstreamerMetaData;
-class QGstreamerPlayerControl;
-class QGstreamerPlayerSession;
-class QGstreamerMetaDataProvider;
-class QGstreamerStreamsControl;
-class QGstreamerVideoRenderer;
-class QGstreamerVideoWidgetControl;
-class QGStreamerAvailabilityControl;
-class QGstreamerAudioProbeControl;
-class QGstreamerVideoProbeControl;
+class QAbstractVideoSurface;
 
-class QGstreamerPlayerService : public QMediaService
+const QLatin1String QGstVideoRendererPluginKey("bufferpool");
+
+class QGstVideoRenderer
+{
+public:
+    virtual ~QGstVideoRenderer() {}
+
+    virtual GstCaps *getCaps(QAbstractVideoSurface *surface) = 0;
+    virtual bool start(QAbstractVideoSurface *surface, GstCaps *caps) = 0;
+    virtual void stop(QAbstractVideoSurface *surface) = 0;  // surface may be null if unexpectedly deleted.
+    virtual bool proposeAllocation(GstQuery *query) = 0;    // may be called from a thread.
+
+    virtual bool present(QAbstractVideoSurface *surface, GstBuffer *buffer) = 0;
+    virtual void flush(QAbstractVideoSurface *surface) = 0; // surface may be null if unexpectedly deleted.
+};
+
+/*
+    Abstract interface for video buffers allocation.
+*/
+class QGstVideoRendererInterface
+{
+public:
+    virtual ~QGstVideoRendererInterface() {}
+
+    virtual QGstVideoRenderer *createPool() = 0;
+};
+
+#define QGstVideoRendererInterface_iid "org.qt-project.qt.gstvideorenderer/5.4"
+Q_DECLARE_INTERFACE(QGstVideoRendererInterface, QGstVideoRendererInterface_iid)
+
+class QGstVideoRendererPlugin : public QObject, public QGstVideoRendererInterface
 {
     Q_OBJECT
+    Q_INTERFACES(QGstVideoRendererInterface)
 public:
-    QGstreamerPlayerService(QObject *parent = 0);
-    ~QGstreamerPlayerService();
+    explicit QGstVideoRendererPlugin(QObject *parent = 0);
+    virtual ~QGstVideoRendererPlugin() {}
 
-    QMediaControl *requestControl(const char *name);
-    void releaseControl(QMediaControl *control);
+    virtual QGstVideoRenderer *createPool() = 0;
 
-private:
-    QGstreamerPlayerControl *m_control;
-    QGstreamerPlayerSession *m_session;
-    QGstreamerMetaDataProvider *m_metaData;
-    QGstreamerStreamsControl *m_streamsControl;
-    QGStreamerAvailabilityControl *m_availabilityControl;
-
-    QGstreamerAudioProbeControl *m_audioProbeControl;
-    QGstreamerVideoProbeControl *m_videoProbeControl;
-
-    QMediaControl *m_videoOutput;
-    QMediaControl *m_videoRenderer;
-    QMediaControl *m_videoWindow;
-#if defined(HAVE_WIDGETS)
-    QMediaControl *m_videoWidget;
-#endif
-
-    void increaseVideoRef();
-    void decreaseVideoRef();
-    int m_videoReferenceCount;
 };
 
 QT_END_NAMESPACE
