@@ -56,13 +56,19 @@
 #include <QtCore/qmap.h>
 #include <QtCore/qset.h>
 #include <gst/gst.h>
+#include <gst/video/video.h>
 #include <qaudioformat.h>
+#include <QtMultimedia/qabstractvideobuffer.h>
+#include <QtMultimedia/qvideoframe.h>
+#include <QDebug>
 
 QT_BEGIN_NAMESPACE
 
 class QSize;
 class QVariant;
 class QByteArray;
+class QImage;
+class QVideoSurfaceFormat;
 
 namespace QGstUtils {
     QMap<QByteArray, QVariant> gstTagListToMap(const GstTagList *list);
@@ -70,13 +76,24 @@ namespace QGstUtils {
     QSize capsResolution(const GstCaps *caps);
     QSize capsCorrectedResolution(const GstCaps *caps);
     QAudioFormat audioFormatForCaps(const GstCaps *caps);
-    QAudioFormat audioFormatForBuffer(GstBuffer *buffer);
+    QAudioFormat audioFormatForSample(GstSample *buffer);
     GstCaps *capsForAudioFormat(QAudioFormat format);
     void initializeGst();
     QMultimedia::SupportEstimate hasSupport(const QString &mimeType,
                                              const QStringList &codecs,
                                              const QSet<QString> &supportedMimeTypeSet);
+    QSet<QString> supportedMimeTypes(bool (*isValidFactory)(GstElementFactory *factory));
+    QImage bufferToImage(GstBuffer *buffer, const GstVideoInfo &info);
+
+    QVideoSurfaceFormat formatForCaps(
+            GstCaps *caps,
+            int *bytesPerLine,
+            QAbstractVideoBuffer::HandleType handleType = QAbstractVideoBuffer::NoHandle);
+    GstCaps *capsForFormats(const QList<QVideoFrame::PixelFormat> &formats);
+    void setFrameTimeStamps(QVideoFrame *frame, GstBuffer *buffer);
 }
+
+QDebug operator <<(QDebug debug, GstCaps *caps);
 
 QT_END_NAMESPACE
 

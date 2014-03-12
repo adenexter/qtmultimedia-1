@@ -69,6 +69,25 @@
 QT_BEGIN_NAMESPACE
 class QAbstractVideoSurface;
 
+class QGstDefaultBufferPool : public QGstBufferPool
+{
+public:
+    QGstDefaultBufferPool();
+    ~QGstDefaultBufferPool();
+
+    GstCaps *getCaps(QAbstractVideoSurface *surface);
+    bool start(QAbstractVideoSurface *surface, GstCaps *caps);
+    void stop(QAbstractVideoSurface *surface);
+    bool proposeAllocation(GstQuery *query);
+
+    bool present(QAbstractVideoSurface *surface, GstBuffer *buffer);
+    void flush(QAbstractVideoSurface *surface);
+
+private:
+    QVideoSurfaceFormat m_format;
+    int m_bytesPerLine;
+};
+
 class QVideoSurfaceGstDelegate : public QObject
 {
     Q_OBJECT
@@ -76,51 +95,47 @@ public:
     QVideoSurfaceGstDelegate(QAbstractVideoSurface *surface);
     ~QVideoSurfaceGstDelegate();
 
-    QList<QVideoFrame::PixelFormat> supportedPixelFormats(
-            QAbstractVideoBuffer::HandleType handleType = QAbstractVideoBuffer::NoHandle) const;
+    GstCaps *caps();
 
-    QVideoSurfaceFormat surfaceFormat() const;
-
-    bool start(const QVideoSurfaceFormat &format, int bytesPerLine);
+    bool start(GstCaps *caps);
     void stop();
+    bool proposeAllocation(GstQuery *query);
 
-    bool isActive();
+    void flush();
 
-    QGstBufferPoolInterface *pool() { return m_pool; }
-    QMutex *poolMutex() { return &m_poolMutex; }
-    void clearPoolBuffers();
+    GstFlowReturn render(GstBuffer *buffer, bool show);
 
-    GstFlowReturn render(GstBuffer *buffer);
+    bool event(QEvent *event);
 
-    GstBuffer *lastPrerolledBuffer() const { return m_lastPrerolledBuffer; }
-    void setLastPrerolledBuffer(GstBuffer *lastPrerolledBuffer); // set prerolledBuffer to 0 to discard prerolled buffer
+    static void handleShowPrerollChange(GObject *o, GParamSpec *p, gpointer d);
 
 private slots:
-    void queuedStart();
-    void queuedStop();
-    void queuedRender();
-
+    bool handleEvent(QMutexLocker *locker);
     void updateSupportedFormats();
 
 private:
+    void notify();
+    bool waitForAsyncEvent(QMutexLocker *locker, QWaitCondition *condition, unsigned long time);
+
+
     QPointer<QAbstractVideoSurface> m_surface;
-    QList<QVideoFrame::PixelFormat> m_supportedPixelFormats;
-    //pixel formats of buffers pool native type
-    QList<QVideoFrame::PixelFormat> m_supportedPoolPixelFormats;
-    QGstBufferPoolInterface *m_pool;
-    QList<QGstBufferPoolInterface *> m_pools;
-    QMutex m_poolMutex;
+
     QMutex m_mutex;
     QWaitCondition m_setupCondition;
     QWaitCondition m_renderCondition;
-    QVideoSurfaceFormat m_format;
-    QVideoFrame m_frame;
     GstFlowReturn m_renderReturn;
-    // this pointer is not 0 when there is a prerolled buffer waiting to be displayed
-    GstBuffer *m_lastPrerolledBuffer;
-    int m_bytesPerLine;
-    bool m_started;
-    bool m_startCanceled;
+    QList<QGstBufferPool *> m_pools;
+    QGstBufferPool *m_pool;
+    QGstBufferPool *m_activePool;
+
+    GstCaps *m_surfaceCaps;
+    GstCaps *m_startCaps;
+    GstBuffer *m_lastBuffer;
+
+    bool m_notified;
+    bool m_stop;
+    bool m_render;
+    bool m_flush;
 };
 
 class QVideoSurfaceGstSink
@@ -129,12 +144,6 @@ public:
     GstVideoSink parent;
 
     static QVideoSurfaceGstSink *createSink(QAbstractVideoSurface *surface);
-    static QVideoSurfaceFormat formatForCaps(GstCaps *caps,
-                                             int *bytesPerLine = 0,
-                                             QAbstractVideoBuffer::HandleType handleType = QAbstractVideoBuffer::NoHandle);
-    static void setFrameTimeStamps(QVideoFrame *frame, GstBuffer *buffer);
-
-    static void handleShowPrerollChange(GObject *o, GParamSpec *p, gpointer d);
 
 private:
     static GType get_type();
@@ -146,11 +155,10 @@ private:
 
     static GstStateChangeReturn change_state(GstElement *element, GstStateChange transition);
 
-    static GstCaps *get_caps(GstBaseSink *sink);
+    static GstCaps *get_caps(GstBaseSink *sink, GstCaps *filter);
     static gboolean set_caps(GstBaseSink *sink, GstCaps *caps);
 
-    static GstFlowReturn buffer_alloc(
-            GstBaseSink *sink, guint64 offset, guint size, GstCaps *caps, GstBuffer **buffer);
+    static gboolean propose_allocation(GstBaseSink *sink, GstQuery *query);
 
     static gboolean start(GstBaseSink *sink);
     static gboolean stop(GstBaseSink *sink);
@@ -160,13 +168,10 @@ private:
     static gboolean event(GstBaseSink *sink, GstEvent *event);
     static GstFlowReturn preroll(GstBaseSink *sink, GstBuffer *buffer);
     static GstFlowReturn render(GstBaseSink *sink, GstBuffer *buffer);
+//    static GstFlowReturn show_frame(GstVideoSink *base, GstBuffer *buffer);
 
 private:
     QVideoSurfaceGstDelegate *delegate;
-
-    GstCaps *lastRequestedCaps;
-    GstCaps *lastBufferCaps;
-    QVideoSurfaceFormat *lastSurfaceFormat;
 };
 
 

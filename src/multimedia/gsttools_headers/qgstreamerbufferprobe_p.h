@@ -39,58 +39,36 @@
 **
 ****************************************************************************/
 
-#include "camerabuttonlistener_meego.h"
+#ifndef QGSTREAMERBUFFERPROBE_H
+#define QGSTREAMERBUFFERPROBE_H
 
-#include <QtWidgets/qapplication.h>
-#include <QtGui/qevent.h>
-#include <QtWidgets/qwidget.h>
-#include <QtCore/qdebug.h>
+#include <gst/gst.h>
+
+#include <QtCore/qglobal.h>
 
 QT_BEGIN_NAMESPACE
 
-CameraButtonListener::CameraButtonListener(QObject *parent) :
-    QObject(parent),
-    m_focusPressed(false),
-    m_shutterPressed(false)
+class QGstreamerBufferProbe
 {
-    m_keys = new MeeGo::QmKeys(this);
-    connect(m_keys, SIGNAL(keyEvent(MeeGo::QmKeys::Key,MeeGo::QmKeys::State)),
-            this, SLOT(handleQmKeyEvent(MeeGo::QmKeys::Key,MeeGo::QmKeys::State)));
-}
+public:
+    explicit QGstreamerBufferProbe();
+    virtual ~QGstreamerBufferProbe();
 
-CameraButtonListener::~CameraButtonListener()
-{
-}
+    void addProbe(GstPad *pad, bool downstream = true);
+    void removeProbe(GstPad *pad);
 
-void CameraButtonListener::handleQmKeyEvent(MeeGo::QmKeys::Key key, MeeGo::QmKeys::State state)
-{
-    if (key == MeeGo::QmKeys::Camera) {
-        QWidget *window = QApplication::focusWidget();
+protected:
+    virtual void probeCaps(GstCaps *caps) = 0;
+    virtual GstPadProbeReturn probeBuffer(GstBuffer *buffer) = 0;
 
-        bool focusPressed = (state == MeeGo::QmKeys::KeyHalfDown) ||
-                            (state == MeeGo::QmKeys::KeyDown);
+private:
+    static GstPadProbeReturn capsProbe(GstPad *pad, GstPadProbeInfo *info, gpointer user_data);
+    static GstPadProbeReturn bufferProbe(GstPad *pad, GstPadProbeInfo *info, gpointer user_data);
 
-        if (m_focusPressed != focusPressed) {
-            m_focusPressed = focusPressed;
-            if (window) {
-                QApplication::postEvent(window,
-                                        new QKeyEvent(focusPressed ? QEvent::KeyPress : QEvent::KeyRelease,
-                                                      Qt::Key_CameraFocus,
-                                                      Qt::NoModifier));
-            }
-        }
-
-        bool shutterPressed = (state == MeeGo::QmKeys::KeyDown);
-        if (m_shutterPressed != shutterPressed) {
-            m_shutterPressed = shutterPressed;
-            if (window) {
-                QApplication::postEvent(window,
-                                        new QKeyEvent(shutterPressed ? QEvent::KeyPress : QEvent::KeyRelease,
-                                                      Qt::Key_Camera,
-                                                      Qt::NoModifier));
-            }
-        }
-    }
-}
+    int m_capsProbeId;
+    int m_bufferProbeId;
+};
 
 QT_END_NAMESPACE
+
+#endif // QGSTREAMERAUDIOPROBECONTROL_H

@@ -42,7 +42,7 @@
 #include "camerabinimageprocessing.h"
 #include "camerabinsession.h"
 
-#include <gst/interfaces/colorbalance.h>
+#include <gst/video/colorbalance.h>
 
 QT_BEGIN_NAMESPACE
 
@@ -134,7 +134,7 @@ bool CameraBinImageProcessing::setColorBalanceValue(const QString& channel, qrea
 QCameraImageProcessing::WhiteBalanceMode CameraBinImageProcessing::whiteBalanceMode() const
 {
 #ifdef HAVE_GST_PHOTOGRAPHY
-    GstWhiteBalanceMode wbMode;
+    GstPhotographyWhiteBalanceMode wbMode;
     gst_photography_get_white_balance_mode(m_session->photography(), &wbMode);
     return m_mappedWbValues[wbMode];
 #else

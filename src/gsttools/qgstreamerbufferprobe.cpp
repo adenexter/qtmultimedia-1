@@ -39,31 +39,71 @@
 **
 ****************************************************************************/
 
-
-#ifndef CAMERABUTTONLISTENER_MEEGO_H
-#define CAMERABUTTONLISTENER_MEEGO_H
-
-#include <QtCore/qobject.h>
-#include <qmsystem2/qmkeys.h>
+#include "qgstreamerbufferprobe_p.h"
 
 QT_BEGIN_NAMESPACE
 
-class CameraButtonListener : public QObject
+QGstreamerBufferProbe::QGstreamerBufferProbe()
+    : m_capsProbeId(-1)
+    , m_bufferProbeId(-1)
 {
-    Q_OBJECT
-public:
-    CameraButtonListener(QObject *parent = 0);
-    ~CameraButtonListener();
+}
 
-private slots:
-    void handleQmKeyEvent(MeeGo::QmKeys::Key key, MeeGo::QmKeys::State state);
+QGstreamerBufferProbe::~QGstreamerBufferProbe()
+{
+}
 
-private:
-    MeeGo::QmKeys *m_keys;
-    bool m_focusPressed;
-    bool m_shutterPressed;
-};
+void QGstreamerBufferProbe::addProbe(GstPad *pad, bool downstream)
+{
+    if (GstCaps *caps = gst_pad_get_current_caps(pad)) {
+        probeCaps(caps);
+        gst_caps_unref(caps);
+    }
+    m_capsProbeId = gst_pad_add_probe(
+                pad,
+                downstream ? GST_PAD_PROBE_TYPE_EVENT_DOWNSTREAM : GST_PAD_PROBE_TYPE_EVENT_UPSTREAM,
+                capsProbe,
+                this,
+                NULL);
+    m_bufferProbeId = gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_BUFFER, bufferProbe, this, NULL);
+}
+
+void QGstreamerBufferProbe::removeProbe(GstPad *pad)
+{
+    if (m_capsProbeId != -1) {
+        gst_pad_remove_probe(pad, m_capsProbeId);
+        m_capsProbeId = -1;
+    }
+    if (m_bufferProbeId != -1) {
+        gst_pad_remove_probe(pad, m_bufferProbeId);
+        m_bufferProbeId = -1;
+    }
+}
+
+GstPadProbeReturn QGstreamerBufferProbe::capsProbe(
+        GstPad *, GstPadProbeInfo *info, gpointer user_data)
+{
+    QGstreamerBufferProbe * const control = static_cast<QGstreamerBufferProbe *>(user_data);
+
+    if (GstEvent * const event = gst_pad_probe_info_get_event(info)) {
+        if (GST_EVENT_TYPE(event) == GST_EVENT_CAPS) {
+            GstCaps *caps;
+            gst_event_parse_caps(event, &caps);
+
+            control->probeCaps(caps);
+        }
+    }
+    return GST_PAD_PROBE_OK;
+}
+
+GstPadProbeReturn QGstreamerBufferProbe::bufferProbe(
+        GstPad *, GstPadProbeInfo *info, gpointer user_data)
+{
+    QGstreamerBufferProbe * const control = static_cast<QGstreamerBufferProbe *>(user_data);
+    if (GstBuffer * const buffer = gst_pad_probe_info_get_buffer(info)) {
+        return control->probeBuffer(buffer);
+    }
+    return GST_PAD_PROBE_OK;
+}
 
 QT_END_NAMESPACE
-
-#endif // CAMERABUTTONLISTENER_MEEGO_H

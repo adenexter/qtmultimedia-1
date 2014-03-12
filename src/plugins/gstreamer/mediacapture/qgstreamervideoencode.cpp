@@ -155,7 +155,7 @@ GstElement *QGstreamerVideoEncode::createEncoder()
     GstElement *capsFilter = gst_element_factory_make("capsfilter", "capsfilter-video");
     gst_bin_add(encoderBin, capsFilter);
 
-    GstElement *colorspace = gst_element_factory_make("ffmpegcolorspace", NULL);
+    GstElement *colorspace = gst_element_factory_make("videoconvert", NULL);
     gst_bin_add(encoderBin, colorspace);
     gst_bin_add(encoderBin, encoderElement);
 
@@ -262,10 +262,10 @@ GstElement *QGstreamerVideoEncode::createEncoder()
     if (!m_videoSettings.resolution().isEmpty() || m_videoSettings.frameRate() > 0.001) {
         GstCaps *caps = gst_caps_new_empty();
         QStringList structureTypes;
-        structureTypes << "video/x-raw-yuv" << "video/x-raw-rgb";
+        structureTypes << "video/x-raw";
 
         foreach(const QString &structureType, structureTypes) {
-            GstStructure *structure = gst_structure_new(structureType.toLatin1().constData(), NULL);
+            GstStructure *structure = gst_structure_new_empty(structureType.toLatin1().constData());
 
             if (!m_videoSettings.resolution().isEmpty()) {
                 gst_structure_set(structure, "width", G_TYPE_INT, m_videoSettings.resolution().width(), NULL);

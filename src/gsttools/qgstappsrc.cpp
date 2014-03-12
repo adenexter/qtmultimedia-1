@@ -150,27 +150,26 @@ void QGstAppSrc::pushDataToAppSrc()
         else
             size = qMin(m_stream->bytesAvailable(), (qint64)m_dataRequestSize);
 
-        if (size) {
-            void *data = g_malloc(size);
-            GstBuffer* buffer = gst_app_buffer_new(data, size, g_free, data);
-            buffer->offset = m_stream->pos();
-            qint64 bytesRead = m_stream->read((char*)GST_BUFFER_DATA(buffer), size);
-            buffer->offset_end =  buffer->offset + bytesRead - 1;
+        if (!size) {
+            sendEOS();
+        } else if (GstBuffer *buffer = gst_buffer_new_allocate(0, size, 0)) {
+            GstMapInfo info;
+            if (gst_buffer_map(buffer, &info, GST_MAP_WRITE)) {
+                qint64 bytesRead = m_stream->read(reinterpret_cast<char *>(info.data), size);
+                gst_buffer_unmap(buffer, &info);
+                gst_buffer_set_size(buffer, bytesRead);
 
-            if (bytesRead > 0) {
-                m_dataRequested = false;
-                m_enoughData = false;
-                GstFlowReturn ret = gst_app_src_push_buffer (GST_APP_SRC (element()), buffer);
-                if (ret == GST_FLOW_ERROR) {
-                    qWarning()<<"appsrc: push buffer error";
-                } else if (ret == GST_FLOW_WRONG_STATE) {
-                    qWarning()<<"appsrc: push buffer wrong state";
-                } else if (ret == GST_FLOW_RESEND) {
-                    qWarning()<<"appsrc: push buffer resend";
+                if (bytesRead > 0) {
+                    m_dataRequested = false;
+                    m_enoughData = false;
+                    GstFlowReturn ret = gst_app_src_push_buffer (GST_APP_SRC (element()), buffer);
+                    if (ret < GST_FLOW_OK) {
+                        qWarning() << "appsrc: push buffer error" << ret;
+                    }
+                    return;
                 }
             }
-        } else {
-            sendEOS();
+            gst_buffer_unref(buffer);
         }
     } else if (m_stream->atEnd()) {
         sendEOS();

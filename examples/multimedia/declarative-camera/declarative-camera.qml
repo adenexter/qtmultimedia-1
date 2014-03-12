@@ -95,8 +95,10 @@ Rectangle {
         }
 
         videoRecorder {
-             resolution: "640x480"
-             frameRate: 15
+            resolution: "1280x720"
+            frameRate: 30
+//            audioCodec: "audio/vorbis"
+            videoCodec: "video/theora"
         }
     }
 

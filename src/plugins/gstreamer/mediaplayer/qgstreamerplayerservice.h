@@ -58,8 +58,9 @@ class QGstreamerPlayerSession;
 class QGstreamerMetaDataProvider;
 class QGstreamerStreamsControl;
 class QGstreamerVideoRenderer;
-class QGstreamerVideoWidgetControl;
 class QGStreamerAvailabilityControl;
+class QGstreamerAudioProbeControl;
+class QGstreamerVideoProbeControl;
 
 class QGstreamerPlayerService : public QMediaService
 {
@@ -78,12 +79,12 @@ private:
     QGstreamerStreamsControl *m_streamsControl;
     QGStreamerAvailabilityControl *m_availabilityControl;
 
+    QGstreamerAudioProbeControl *m_audioProbeControl;
+    QGstreamerVideoProbeControl *m_videoProbeControl;
+
     QMediaControl *m_videoOutput;
     QMediaControl *m_videoRenderer;
     QMediaControl *m_videoWindow;
-#if defined(HAVE_WIDGETS)
-    QMediaControl *m_videoWidget;
-#endif
 
     void increaseVideoRef();
     void decreaseVideoRef();

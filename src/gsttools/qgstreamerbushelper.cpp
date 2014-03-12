@@ -162,13 +162,13 @@ QGstreamerBusHelper::QGstreamerBusHelper(GstBus* bus, QObject* parent):
     QObject(parent)
 {
     d = new QGstreamerBusHelperPrivate(this, bus);
-    gst_bus_set_sync_handler(bus, (GstBusSyncHandler)syncGstBusFilter, d);
+    gst_bus_set_sync_handler(bus, (GstBusSyncHandler)syncGstBusFilter, d, 0);
     gst_object_ref(GST_OBJECT(bus));
 }
 
 QGstreamerBusHelper::~QGstreamerBusHelper()
 {
-    gst_bus_set_sync_handler(d->bus(),0,0);
+    gst_bus_set_sync_handler(d->bus(), 0, 0, 0);
     gst_object_unref(GST_OBJECT(d->bus()));
 }
 

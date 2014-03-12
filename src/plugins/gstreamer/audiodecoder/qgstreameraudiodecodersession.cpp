@@ -93,7 +93,7 @@ QGstreamerAudioDecoderSession::QGstreamerAudioDecoderSession(QObject *parent)
      m_durationQueries(0)
 {
     // Create pipeline here
-    m_playbin = gst_element_factory_make("playbin2", NULL);
+    m_playbin = gst_element_factory_make("playbin", NULL);
 
     if (m_playbin != 0) {
         // Sort out messages
@@ -451,21 +451,27 @@ QAudioBuffer QGstreamerAudioDecoderSession::read()
         if (buffersAvailable == 1)
             emit bufferAvailableChanged(false);
 
-        GstBuffer *buffer = gst_app_sink_pull_buffer(m_appSink);
+        GstSample *sample = gst_app_sink_pull_sample(m_appSink);
+        GstBuffer *buffer = gst_sample_get_buffer(sample);
 
-        QAudioFormat format = QGstUtils::audioFormatForBuffer(buffer);
-        if (format.isValid()) {
+        QAudioFormat format = QGstUtils::audioFormatForSample(sample);
+
+        GstMapInfo info;
+        if (format.isValid() && gst_buffer_map(buffer, &info, GST_MAP_READ)) {
             // XXX At the moment we have to copy data from GstBuffer into QAudioBuffer.
             // We could improve performance by implementing QAbstractAudioBuffer for GstBuffer.
             qint64 position = getPositionFromBuffer(buffer);
-            audioBuffer = QAudioBuffer(QByteArray((const char*)buffer->data, buffer->size), format, position);
+            audioBuffer = QAudioBuffer(
+                        QByteArray(reinterpret_cast<const char *>(info.data), info.size),
+                        format,
+                        position);
             position /= 1000; // convert to milliseconds
             if (position != m_position) {
                 m_position = position;
                 emit positionChanged(m_position);
             }
         }
-        gst_buffer_unref(buffer);
+        gst_sample_unref(sample);
     }
 
     return audioBuffer;
@@ -493,7 +499,7 @@ void QGstreamerAudioDecoderSession::processInvalidMedia(QAudioDecoder::Error err
     emit error(int(errorCode), errorString);
 }
 
-GstFlowReturn QGstreamerAudioDecoderSession::new_buffer(GstAppSink *, gpointer user_data)
+GstFlowReturn QGstreamerAudioDecoderSession::new_sample(GstAppSink *, gpointer user_data)
 {
     // "Note that the preroll buffer will also be returned as the first buffer when calling gst_app_sink_pull_buffer()."
     QGstreamerAudioDecoderSession *session = reinterpret_cast<QGstreamerAudioDecoderSession*>(user_data);
@@ -536,7 +542,7 @@ void QGstreamerAudioDecoderSession::addAppSink()
 
     GstAppSinkCallbacks callbacks;
     memset(&callbacks, 0, sizeof(callbacks));
-    callbacks.new_buffer = &new_buffer;
+    callbacks.new_sample = &new_sample;
     gst_app_sink_set_callbacks(m_appSink, &callbacks, this, NULL);
     gst_app_sink_set_max_buffers(m_appSink, MAX_BUFFERS_IN_QUEUE);
     gst_base_sink_set_sync(GST_BASE_SINK(m_appSink), FALSE);
@@ -562,7 +568,7 @@ void QGstreamerAudioDecoderSession::updateDuration()
     gint64 gstDuration = 0;
     int duration = -1;
 
-    if (m_playbin && gst_element_query_duration(m_playbin, &format, &gstDuration))
+    if (m_playbin && gst_element_query_duration(m_playbin, format, &gstDuration))
         duration = gstDuration / 1000000;
 
     if (m_duration != duration) {

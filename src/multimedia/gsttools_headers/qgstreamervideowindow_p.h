@@ -51,9 +51,10 @@
 QT_BEGIN_NAMESPACE
 class QAbstractVideoSurface;
 
-class QGstreamerVideoWindow : public QVideoWindowControl,
-        public QGstreamerVideoRendererInterface,
-        public QGstreamerSyncMessageFilter
+class QGstreamerVideoWindow
+        : public QVideoWindowControl
+        , public QGstreamerVideoRendererInterface
+        , public QGstreamerSyncMessageFilter
 {
     Q_OBJECT
     Q_INTERFACES(QGstreamerVideoRendererInterface QGstreamerSyncMessageFilter)
@@ -109,10 +110,10 @@ signals:
     void readyChanged(bool);
 
 private slots:
-    void updateNativeVideoSize();
+    void updateNativeVideoSize(const QSize &size);
 
 private:
-    static void padBufferProbe(GstPad *pad, GstBuffer *buffer, gpointer user_data);
+    static GstPadProbeReturn eventProbe(GstPad *, GstPadProbeInfo *info, gpointer user_data);
 
     GstElement *m_videoSink;
     WId m_windowId;
@@ -121,7 +122,7 @@ private:
     bool m_fullScreen;
     QSize m_nativeSize;
     mutable QColor m_colorKey;
-    int m_bufferProbeId;
+    int m_eventProbeId;
 };
 
 QT_END_NAMESPACE

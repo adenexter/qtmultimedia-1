@@ -49,9 +49,11 @@
 #include <private/qgstreamervideorendererinterface_p.h>
 #include <private/qgstreameraudioprobecontrol_p.h>
 #include <private/qgstreamerbushelper_p.h>
+#include <private/qgstutils_p.h>
 
 #include <gst/gsttagsetter.h>
 #include <gst/gstversion.h>
+#include <gst/video/video.h>
 
 #include <QtCore/qdebug.h>
 #include <QtCore/qurl.h>
@@ -59,12 +61,11 @@
 #include <QCoreApplication>
 #include <QtCore/qmetaobject.h>
 #include <QtCore/qfile.h>
-
 #include <QtGui/qimage.h>
 
 QT_BEGIN_NAMESPACE
 
-#define gstRef(element) { gst_object_ref(GST_OBJECT(element)); gst_object_sink(GST_OBJECT(element)); }
+#define gstRef(element) { gst_object_ref(GST_OBJECT(element)); gst_object_ref_sink(GST_OBJECT(element)); }
 #define gstUnref(element) { if (element) { gst_object_unref(GST_OBJECT(element)); element = 0; } }
 
 QGstreamerCaptureSession::QGstreamerCaptureSession(QGstreamerCaptureSession::CaptureMode captureMode, QObject *parent)
@@ -74,7 +75,7 @@ QGstreamerCaptureSession::QGstreamerCaptureSession(QGstreamerCaptureSession::Cap
      m_waitingForEos(false),
      m_pipelineMode(EmptyPipeline),
      m_captureMode(captureMode),
-     m_audioBufferProbeId(-1),
+     m_audioProbe(0),
      m_audioInputFactory(0),
      m_audioPreviewFactory(0),
      m_videoInputFactory(0),
@@ -175,7 +176,7 @@ GstElement *QGstreamerCaptureSession::buildEncodeBin()
 
     if (m_captureMode & Video) {
         GstElement *videoQueue = gst_element_factory_make("queue", "video-encode-queue");
-        GstElement *colorspace = gst_element_factory_make("ffmpegcolorspace", "ffmpegcolorspace-encoder");
+        GstElement *colorspace = gst_element_factory_make("videoconvert", "videoconvert-encoder");
         GstElement *videoscale = gst_element_factory_make("videoscale","videoscale-encoder");
         gst_bin_add_many(GST_BIN(encodeBin), videoQueue, colorspace, videoscale, NULL);
 
@@ -286,7 +287,7 @@ GstElement *QGstreamerCaptureSession::buildVideoPreview()
 
     if (m_viewfinderInterface) {
         GstElement *bin = gst_bin_new("video-preview-bin");
-        GstElement *colorspace = gst_element_factory_make("ffmpegcolorspace", "ffmpegcolorspace-preview");
+        GstElement *colorspace = gst_element_factory_make("videoconvert", "videoconvert-preview");
         GstElement *capsFilter = gst_element_factory_make("capsfilter", "capsfilter-video-preview");
         GstElement *preview = m_viewfinderInterface->videoSink();
 
@@ -305,35 +306,23 @@ GstElement *QGstreamerCaptureSession::buildVideoPreview()
             resolution = m_imageEncodeControl->imageSettings().resolution();
         }
 
-        if (!resolution.isEmpty() || frameRate > 0.001) {
-            GstCaps *caps = gst_caps_new_empty();
-            QStringList structureTypes;
-            structureTypes << "video/x-raw-yuv" << "video/x-raw-rgb";
-
-            foreach(const QString &structureType, structureTypes) {
-                GstStructure *structure = gst_structure_new(structureType.toLatin1().constData(), NULL);
-
-                if (!resolution.isEmpty()) {
-                    gst_structure_set(structure, "width", G_TYPE_INT, resolution.width(), NULL);
-                    gst_structure_set(structure, "height", G_TYPE_INT, resolution.height(), NULL);
-                }
-
-                if (frameRate > 0.001) {
-                    QPair<int,int> rate = m_videoEncodeControl->rateAsRational();
-
-                    //qDebug() << "frame rate:" << num << denum;
-
-                    gst_structure_set(structure, "framerate", GST_TYPE_FRACTION, rate.first, rate.second, NULL);
-                }
-
-                gst_caps_append_structure(caps,structure);
-            }
-
-            //qDebug() << "set video preview caps filter:" << gst_caps_to_string(caps);
-
-            g_object_set(G_OBJECT(capsFilter), "caps", caps, NULL);
-
+        GstCaps *caps = gst_caps_new_empty_simple("video/x-raw");
+        if (!resolution.isEmpty()) {
+            gst_caps_set_simple(caps, "width", G_TYPE_INT, resolution.width(), NULL);
+            gst_caps_set_simple(caps, "height", G_TYPE_INT, resolution.height(), NULL);
         }
+        if (frameRate > 0.001) {
+            QPair<int,int> rate = m_videoEncodeControl->rateAsRational();
+
+            //qDebug() << "frame rate:" << num << denum;
+
+            gst_caps_set_simple(caps, "framerate", GST_TYPE_FRACTION, rate.first, rate.second, NULL);
+        }
+
+        //qDebug() << "set video preview caps filter:" << gst_caps_to_string(caps);
+
+        g_object_set(G_OBJECT(capsFilter), "caps", caps, NULL);
+
 
         // add ghostpads
         GstPad *pad = gst_element_get_static_pad(colorspace, "sink");
@@ -347,7 +336,7 @@ GstElement *QGstreamerCaptureSession::buildVideoPreview()
         previewElement = gst_element_factory_make("fakesink", "video-preview");
 #else
         GstElement *bin = gst_bin_new("video-preview-bin");
-        GstElement *colorspace = gst_element_factory_make("ffmpegcolorspace", "ffmpegcolorspace-preview");
+        GstElement *colorspace = gst_element_factory_make("videoconvert", "videoconvert-preview");
         GstElement *preview = gst_element_factory_make("ximagesink", "video-preview");
         gst_bin_add_many(GST_BIN(bin), colorspace, preview,  NULL);
         gst_element_link(colorspace,preview);
@@ -365,101 +354,41 @@ GstElement *QGstreamerCaptureSession::buildVideoPreview()
     return previewElement;
 }
 
-
-static gboolean passImageFilter(GstElement *element,
-                                GstBuffer *buffer,
-                                void *appdata)
+void QGstreamerCaptureSession::probeCaps(GstCaps *caps)
 {
-    Q_UNUSED(element);
-    Q_UNUSED(buffer);
+    gst_video_info_from_caps(&m_previewInfo, caps);
+}
 
-    QGstreamerCaptureSession *session = (QGstreamerCaptureSession *)appdata;
-    if (session->m_passImage || session->m_passPrerollImage) {
-        session->m_passImage = false;
+GstPadProbeReturn QGstreamerCaptureSession::probeBuffer(GstBuffer *buffer)
+{
+    if (m_passPrerollImage) {
+        m_passImage = false;
+        m_passPrerollImage = false;
 
-        if (session->m_passPrerollImage) {
-            session->m_passPrerollImage = false;
-            return TRUE;
-        }
-        session->m_passPrerollImage = false;
-
-        QImage img;
-
-        GstCaps *caps = gst_buffer_get_caps(buffer);
-        if (caps) {
-            GstStructure *structure = gst_caps_get_structure (caps, 0);
-            gint width = 0;
-            gint height = 0;
-
-            if (structure &&
-                gst_structure_get_int(structure, "width", &width) &&
-                gst_structure_get_int(structure, "height", &height) &&
-                width > 0 && height > 0) {
-                    if (qstrcmp(gst_structure_get_name(structure), "video/x-raw-yuv") == 0) {
-                        guint32 fourcc = 0;
-                        gst_structure_get_fourcc(structure, "format", &fourcc);
-
-                        if (fourcc == GST_MAKE_FOURCC('I','4','2','0')) {
-                            img = QImage(width/2, height/2, QImage::Format_RGB32);
-
-                            const uchar *data = (const uchar *)buffer->data;
-
-                            for (int y=0; y<height; y+=2) {
-                                const uchar *yLine = data + y*width;
-                                const uchar *uLine = data + width*height + y*width/4;
-                                const uchar *vLine = data + width*height*5/4 + y*width/4;
-
-                                for (int x=0; x<width; x+=2) {
-                                    const qreal Y = 1.164*(yLine[x]-16);
-                                    const int U = uLine[x/2]-128;
-                                    const int V = vLine[x/2]-128;
-
-                                    int b = qBound(0, int(Y + 2.018*U), 255);
-                                    int g = qBound(0, int(Y - 0.813*V - 0.391*U), 255);
-                                    int r = qBound(0, int(Y + 1.596*V), 255);
-
-                                    img.setPixel(x/2,y/2,qRgb(r,g,b));
-                                }
-                            }
-                        }
-
-                    } else if (qstrcmp(gst_structure_get_name(structure), "video/x-raw-rgb") == 0) {
-                        QImage::Format format = QImage::Format_Invalid;
-                        int bpp = 0;
-                        gst_structure_get_int(structure, "bpp", &bpp);
-
-                        if (bpp == 24)
-                            format = QImage::Format_RGB888;
-                        else if (bpp == 32)
-                            format = QImage::Format_RGB32;
-
-                        if (format != QImage::Format_Invalid) {
-                            img = QImage((const uchar *)buffer->data,
-                                         width,
-                                         height,
-                                         format);
-                            img.bits(); //detach
-                        }
-                    }
-            }
-            gst_caps_unref(caps);
-        }
-
-        static QMetaMethod exposedSignal = QMetaMethod::fromSignal(&QGstreamerCaptureSession::imageExposed);
-        exposedSignal.invoke(session,
-                             Qt::QueuedConnection,
-                             Q_ARG(int,session->m_imageRequestId));
-
-        static QMetaMethod capturedSignal = QMetaMethod::fromSignal(&QGstreamerCaptureSession::imageCaptured);
-        capturedSignal.invoke(session,
-                              Qt::QueuedConnection,
-                              Q_ARG(int,session->m_imageRequestId),
-                              Q_ARG(QImage,img));
-
-        return TRUE;
-    } else {
-        return FALSE;
+        return GST_PAD_PROBE_PASS;
+    } else  if (!m_passImage) {
+        return GST_PAD_PROBE_DROP;
     }
+
+    m_passImage = false;
+
+    QImage img = QGstUtils::bufferToImage(buffer, m_previewInfo);
+
+    if (img.isNull())
+        return GST_PAD_PROBE_PASS;
+
+    static QMetaMethod exposedSignal = QMetaMethod::fromSignal(&QGstreamerCaptureSession::imageExposed);
+    exposedSignal.invoke(this,
+                         Qt::QueuedConnection,
+                         Q_ARG(int,m_imageRequestId));
+
+    static QMetaMethod capturedSignal = QMetaMethod::fromSignal(&QGstreamerCaptureSession::imageCaptured);
+    capturedSignal.invoke(this,
+                          Qt::QueuedConnection,
+                          Q_ARG(int,m_imageRequestId),
+                          Q_ARG(QImage,img));
+
+    return GST_PAD_PROBE_PASS;
 }
 
 static gboolean saveImageFilter(GstElement *element,
@@ -476,7 +405,11 @@ static gboolean saveImageFilter(GstElement *element,
     if (!fileName.isEmpty()) {
         QFile f(fileName);
         if (f.open(QFile::WriteOnly)) {
-            f.write((const char *)buffer->data, buffer->size);
+            GstMapInfo info;
+            if (gst_buffer_map(buffer, &info, GST_MAP_READ)) {
+                f.write(reinterpret_cast<const char *>(info.data), info.size);
+                gst_buffer_unmap(buffer, &info);
+            }
             f.close();
 
             static QMetaMethod savedSignal = QMetaMethod::fromSignal(&QGstreamerCaptureSession::imageSaved);
@@ -494,17 +427,17 @@ GstElement *QGstreamerCaptureSession::buildImageCapture()
 {
     GstElement *bin = gst_bin_new("image-capture-bin");
     GstElement *queue = gst_element_factory_make("queue", "queue-image-capture");
-    GstElement *colorspace = gst_element_factory_make("ffmpegcolorspace", "ffmpegcolorspace-image-capture");
+    GstElement *colorspace = gst_element_factory_make("videoconvert", "videoconvert-image-capture");
     GstElement *encoder = gst_element_factory_make("jpegenc", "image-encoder");
     GstElement *sink = gst_element_factory_make("fakesink","sink-image-capture");
 
     GstPad *pad = gst_element_get_static_pad(queue, "src");
     Q_ASSERT(pad);
-    gst_pad_add_buffer_probe(pad, G_CALLBACK(passImageFilter), this);
+    addProbe(pad, false);
+    gst_object_unref(GST_OBJECT(pad));
 
     g_object_set(G_OBJECT(sink), "signal-handoffs", TRUE, NULL);
-    g_signal_connect(G_OBJECT(sink), "handoff",
-                     G_CALLBACK(saveImageFilter), this);
+    g_signal_connect(G_OBJECT(sink), "handoff", G_CALLBACK(saveImageFilter), this);
 
     gst_bin_add_many(GST_BIN(bin), queue, colorspace, encoder, sink,  NULL);
     gst_element_link_many(queue, colorspace, encoder, sink, NULL);
@@ -699,6 +632,8 @@ void QGstreamerCaptureSession::dumpGraph(const QString &fileName)
     _gst_debug_bin_to_dot_file(GST_BIN(m_pipeline),
                                GstDebugGraphDetails(/*GST_DEBUG_GRAPH_SHOW_ALL |*/ GST_DEBUG_GRAPH_SHOW_MEDIA_TYPE | GST_DEBUG_GRAPH_SHOW_NON_DEFAULT_PARAMS | GST_DEBUG_GRAPH_SHOW_STATES),
                                fileName.toLatin1());
+#else
+    Q_UNUSED(fileName);
 #endif
 }
 
@@ -856,10 +791,9 @@ void QGstreamerCaptureSession::setState(QGstreamerCaptureSession::State newState
 
 qint64 QGstreamerCaptureSession::duration() const
 {
-    GstFormat   format = GST_FORMAT_TIME;
     gint64      duration = 0;
 
-    if ( m_encodeBin && gst_element_query_position(m_encodeBin, &format, &duration))
+    if ( m_encodeBin && gst_element_query_position(m_encodeBin, GST_FORMAT_TIME, &duration))
         return duration / 1000000;
     else
         return 0;
@@ -877,15 +811,15 @@ void QGstreamerCaptureSession::setMetaData(const QMap<QByteArray, QVariant> &dat
 
     if (m_encodeBin) {
         GstIterator *elements = gst_bin_iterate_all_by_interface(GST_BIN(m_encodeBin), GST_TYPE_TAG_SETTER);
-        GstElement *element = 0;
-        while (gst_iterator_next(elements, (void**)&element) == GST_ITERATOR_OK) {
-            //qDebug() << "found element with tag setter interface:" << gst_element_get_name(element);
+        GValue item = G_VALUE_INIT;
+        while (gst_iterator_next(elements, &item) == GST_ITERATOR_OK) {
+            GstElement * const element = GST_ELEMENT(g_value_get_object(&item));
+
             QMapIterator<QByteArray, QVariant> it(data);
             while (it.hasNext()) {
                 it.next();
                 const QString tagName = it.key();
                 const QVariant tagValue = it.value();
-
 
                 switch(tagValue.type()) {
                     case QVariant::String:
@@ -1034,36 +968,18 @@ void QGstreamerCaptureSession::setVolume(qreal volume)
     }
 }
 
-void QGstreamerCaptureSession::addProbe(QGstreamerAudioProbeControl* probe)
+void QGstreamerCaptureSession::addAudioProbe(QGstreamerAudioProbeControl* probe)
 {
-    QMutexLocker locker(&m_audioProbeMutex);
-
-    if (m_audioProbes.contains(probe))
-        return;
-
-    m_audioProbes.append(probe);
+    Q_ASSERT(!m_audioProbe);
+    m_audioProbe = probe;
+    addAudioBufferProbe();
 }
 
-void QGstreamerCaptureSession::removeProbe(QGstreamerAudioProbeControl* probe)
+void QGstreamerCaptureSession::removeAudioProbe(QGstreamerAudioProbeControl* probe)
 {
-    QMutexLocker locker(&m_audioProbeMutex);
-    m_audioProbes.removeOne(probe);
-}
-
-gboolean QGstreamerCaptureSession::padAudioBufferProbe(GstPad *pad, GstBuffer *buffer, gpointer user_data)
-{
-    Q_UNUSED(pad);
-
-    QGstreamerCaptureSession *session = reinterpret_cast<QGstreamerCaptureSession*>(user_data);
-    QMutexLocker locker(&session->m_audioProbeMutex);
-
-    if (session->m_audioProbes.isEmpty())
-        return TRUE;
-
-    foreach (QGstreamerAudioProbeControl* probe, session->m_audioProbes)
-        probe->bufferProbed(buffer);
-
-    return TRUE;
+    Q_ASSERT(m_audioProbe == probe);
+    removeAudioBufferProbe();
+    m_audioProbe = 0;
 }
 
 GstPad *QGstreamerCaptureSession::getAudioProbePad()
@@ -1092,23 +1008,26 @@ GstPad *QGstreamerCaptureSession::getAudioProbePad()
 
 void QGstreamerCaptureSession::removeAudioBufferProbe()
 {
-    if (m_audioBufferProbeId == -1)
+    if (!m_audioProbe)
         return;
 
     GstPad *pad = getAudioProbePad();
-    if (pad)
-        gst_pad_remove_buffer_probe(pad, m_audioBufferProbeId);
-
-    m_audioBufferProbeId = -1;
+    if (pad) {
+        m_audioProbe->removeProbe(pad);
+        gst_object_unref(GST_OBJECT(pad));
+    }
 }
 
 void QGstreamerCaptureSession::addAudioBufferProbe()
 {
-    Q_ASSERT(m_audioBufferProbeId == -1);
+    if (!m_audioProbe)
+        return;
 
     GstPad *pad = getAudioProbePad();
-    if (pad)
-        m_audioBufferProbeId = gst_pad_add_buffer_probe(pad, G_CALLBACK(padAudioBufferProbe), this);
+    if (pad) {
+        m_audioProbe->addProbe(pad);
+        gst_object_unref(GST_OBJECT(pad));
+    }
 }
 
 QT_END_NAMESPACE

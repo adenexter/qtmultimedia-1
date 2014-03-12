@@ -239,14 +239,6 @@ void QGstreamerPlayerControl::playOrPause(QMediaPlayer::State newState)
         setMedia(m_currentResource, m_stream);
     }
 
-#ifdef Q_WS_MAEMO_6
-    //this is a work around for the gstreamer bug,
-    //should be remove once it get fixed
-    if (newState == QMediaPlayer::PlayingState && m_mediaStatus == QMediaPlayer::InvalidMedia) {
-        setMedia(m_currentResource, m_stream);
-    }
-#endif
-
     if (!m_resources->isGranted())
         m_resources->acquire();
 
@@ -271,7 +263,7 @@ void QGstreamerPlayerControl::playOrPause(QMediaPlayer::State newState)
         //the pipeline is paused instead of playing, seeked to requested position,
         //and after seeking is finished (position updated) playback is restarted
         //with show-preroll-frame enabled.
-        if (newState == QMediaPlayer::PlayingState && m_pendingSeekPosition == -1)
+        if (newState == QMediaPlayer::PlayingState/* && m_pendingSeekPosition == -1*/)
             ok = m_session->play();
         else
             ok = m_session->pause();

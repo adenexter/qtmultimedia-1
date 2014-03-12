@@ -47,7 +47,6 @@
 
 #include <gst/gst.h>
 #include <gst/app/gstappsrc.h>
-#include <gst/app/gstappbuffer.h>
 
 QT_BEGIN_NAMESPACE
 

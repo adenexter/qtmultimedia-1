@@ -50,16 +50,6 @@ SOURCES += \
     $$PWD/camerabinviewfindersettings.cpp \
     $$PWD/camerabincapturebufferformat.cpp
 
-maemo6 {
-    HEADERS += \
-        $$PWD/camerabuttonlistener_meego.h
-
-    SOURCES += \
-        $$PWD/camerabuttonlistener_meego.cpp
-
-    CONFIG += have_gst_photography
-}
-
 config_gstreamer_photography {
     DEFINES += HAVE_GST_PHOTOGRAPHY
 
@@ -77,7 +67,7 @@ config_gstreamer_photography {
         $$PWD/camerabinlocks.cpp \
         $$PWD/camerabinzoom.cpp
 
-    LIBS += -lgstphotography-0.10
+    LIBS += -lgstphotography-1.0
     DEFINES += GST_USE_UNSTABLE_API #prevents warnings because of unstable photography API
 }
 

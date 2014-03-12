@@ -81,7 +81,7 @@ private:
     CameraBinSession *m_session;
     QMap<QCameraImageProcessingControl::ProcessingParameter, int> m_values;
 #ifdef HAVE_GST_PHOTOGRAPHY
-    QMap<GstWhiteBalanceMode, QCameraImageProcessing::WhiteBalanceMode> m_mappedWbValues;
+    QMap<GstPhotographyWhiteBalanceMode, QCameraImageProcessing::WhiteBalanceMode> m_mappedWbValues;
 #endif
 };
 

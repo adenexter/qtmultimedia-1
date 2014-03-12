@@ -46,17 +46,25 @@
 #include <qmediavideoprobecontrol.h>
 #include <QtCore/qmutex.h>
 #include <qvideoframe.h>
+#include <qvideosurfaceformat.h>
+
+#include <private/qgstreamerbufferprobe_p.h>
 
 QT_BEGIN_NAMESPACE
 
-class QGstreamerVideoProbeControl : public QMediaVideoProbeControl
+class QGstreamerVideoProbeControl : public QMediaVideoProbeControl, public QGstreamerBufferProbe
 {
     Q_OBJECT
 public:
     explicit QGstreamerVideoProbeControl(QObject *parent);
     virtual ~QGstreamerVideoProbeControl();
 
-    void bufferProbed(GstBuffer* buffer);
+    void reference() { ++m_referenceCount; }
+    bool release() { return --m_referenceCount == 0; }
+
+    void probeCaps(GstCaps *caps);
+    GstPadProbeReturn probeBuffer(GstBuffer *buffer);
+
     void startFlushing();
     void stopFlushing();
 
@@ -64,10 +72,13 @@ private slots:
     void frameProbed();
 
 private:
-    bool m_flushing;
-    bool m_frameProbed; // true if at least one frame was probed
+    QVideoSurfaceFormat m_format;
     QVideoFrame m_pendingFrame;
     QMutex m_frameMutex;
+    int m_bytesPerLine;
+    int m_referenceCount;
+    bool m_flushing;
+    bool m_frameProbed; // true if at least one frame was probed
 };
 
 QT_END_NAMESPACE

@@ -15,14 +15,14 @@ LIBS_PRIVATE += \
 CONFIG += link_pkgconfig
 
 PKGCONFIG_PRIVATE += \
-    gstreamer-0.10 \
-    gstreamer-base-0.10 \
-    gstreamer-interfaces-0.10 \
-    gstreamer-audio-0.10 \
-    gstreamer-video-0.10 \
-    gstreamer-pbutils-0.10
+    gstreamer-1.0 \
+    gstreamer-base-1.0 \
+    gstreamer-audio-1.0 \
+    gstreamer-video-1.0 \
+    gstreamer-pbutils-1.0 \
+#    gstreamer-interfaces-1.0 \
 
-maemo*: PKGCONFIG_PRIVATE +=gstreamer-plugins-bad-0.10
+maemo*: PKGCONFIG_PRIVATE +=gstreamer-plugins-bad-1.0
 
 config_resourcepolicy {
     DEFINES += HAVE_RESOURCE_POLICY
@@ -41,15 +41,16 @@ PRIVATE_HEADERS += \
     qgstutils_p.h \
     qgstvideobuffer_p.h \
     qvideosurfacegstsink_p.h \
+    qgstreamerbufferprobe_p.h \
     qgstreamervideorendererinterface_p.h \
     qgstreameraudioinputselector_p.h \
     qgstreamervideorenderer_p.h \
     qgstreamervideoinputdevicecontrol_p.h \
-    gstvideoconnector_p.h \
     qgstcodecsinfo_p.h \
     qgstreamervideoprobecontrol_p.h \
     qgstreameraudioprobecontrol_p.h \
-    qgstreamervideowindow_p.h
+    qgstreamervideowindow_p.h \
+#    gstvideoconnector_p.h \
 
 SOURCES += \
     qgstbufferpoolinterface.cpp \
@@ -58,45 +59,25 @@ SOURCES += \
     qgstutils.cpp \
     qgstvideobuffer.cpp \
     qvideosurfacegstsink.cpp \
+    qgstreamerbufferprobe.cpp \
     qgstreamervideorendererinterface.cpp \
     qgstreameraudioinputselector.cpp \
     qgstreamervideorenderer.cpp \
     qgstreamervideoinputdevicecontrol.cpp \
     qgstcodecsinfo.cpp \
-    gstvideoconnector.c \
     qgstreamervideoprobecontrol.cpp \
     qgstreameraudioprobecontrol.cpp \
-    qgstreamervideowindow.cpp
-
-qtHaveModule(widgets) {
-    QT += multimediawidgets
-
-    PRIVATE_HEADERS += \
-        qgstreamervideowidget_p.h
-
-    SOURCES += \
-        qgstreamervideowidget.cpp
-}
-
-maemo6 {
-    PKGCONFIG_PRIVATE += qmsystem2
-
-    contains(QT_CONFIG, opengles2):qtHaveModule(widgets) {
-        PRIVATE_HEADERS += qgstreamergltexturerenderer_p.h
-        SOURCES += qgstreamergltexturerenderer.cpp
-        QT += opengl
-        LIBS_PRIVATE += -lEGL -lgstmeegointerfaces-0.10
-    }
-}
+    qgstreamervideowindow.cpp \
+#    gstvideoconnector.c
 
 config_gstreamer_appsrc {
-    PKGCONFIG_PRIVATE += gstreamer-app-0.10
+    PKGCONFIG_PRIVATE += gstreamer-app-1.0
     PRIVATE_HEADERS += qgstappsrc_p.h
     SOURCES += qgstappsrc.cpp
 
     DEFINES += HAVE_GST_APPSRC
 
-    LIBS_PRIVATE += -lgstapp-0.10
+    LIBS_PRIVATE += -lgstapp-1.0
 }
 
 HEADERS += $$PRIVATE_HEADERS

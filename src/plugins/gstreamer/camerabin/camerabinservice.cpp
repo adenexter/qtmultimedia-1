@@ -67,25 +67,13 @@
 #include <private/qgstreameraudioinputselector_p.h>
 #include <private/qgstreamervideoinputdevicecontrol_p.h>
 
-
-#if defined(HAVE_WIDGETS)
-#include <private/qgstreamervideowidget_p.h>
-#endif
 #include <private/qgstreamervideowindow_p.h>
 #include <private/qgstreamervideorenderer_p.h>
-
-#if defined(Q_WS_MAEMO_6) && defined(__arm__)
-#include "qgstreamergltexturerenderer.h"
-#endif
 
 #include <private/qmediaserviceprovider_p.h>
 
 #include <QtCore/qdebug.h>
 #include <QtCore/qprocess.h>
-
-#if defined(Q_WS_MAEMO_6)
-#include "camerabuttonlistener_meego.h"
-#endif
 
 QT_BEGIN_NAMESPACE
 
@@ -101,9 +89,6 @@ CameraBinService::CameraBinService(const QString &service, QObject *parent):
     m_videoOutput = 0;
     m_videoRenderer = 0;
     m_videoWindow = 0;
-#if defined(HAVE_WIDGETS)
-    m_videoWidgetControl = 0;
-#endif
     m_imageCaptureControl = 0;
 
     if (service == Q_MEDIASERVICE_CAMERA) {
@@ -118,22 +103,8 @@ CameraBinService::CameraBinService(const QString &service, QObject *parent):
         if (m_videoInputDevice->deviceCount())
             m_captureSession->setDevice(m_videoInputDevice->deviceName(m_videoInputDevice->selectedDevice()));
 
-#if defined(Q_WS_MAEMO_6) && defined(__arm__) && defined(HAVE_WIDGETS)
-        m_videoRenderer = new QGstreamerGLTextureRenderer(this);
-#else
         m_videoRenderer = new QGstreamerVideoRenderer(this);
-#endif
-
-#ifdef Q_WS_MAEMO_6
-        m_videoWindow = new QGstreamerVideoWindow(this, "omapxvsink");
-#else
         m_videoWindow = new QGstreamerVideoWindow(this);
-#endif
-
-#if defined(HAVE_WIDGETS)
-        m_videoWidgetControl = new QGstreamerVideoWidgetControl(this);
-#endif
-
     }
     if (!m_captureSession) {
         qWarning() << Q_FUNC_INFO << "Service type is not supported:" << service;
@@ -149,10 +120,6 @@ CameraBinService::CameraBinService(const QString &service, QObject *parent):
     m_metaDataControl = new CameraBinMetaData(this);
     connect(m_metaDataControl, SIGNAL(metaDataChanged(QMap<QByteArray,QVariant>)),
             m_captureSession, SLOT(setMetaData(QMap<QByteArray,QVariant>)));
-
-#if defined(Q_WS_MAEMO_6)
-    new CameraButtonListener(this);
-#endif
 }
 
 CameraBinService::~CameraBinService()
@@ -172,11 +139,6 @@ QMediaControl *CameraBinService::requestControl(const char *name)
         } else if (qstrcmp(name, QVideoWindowControl_iid) == 0) {
             m_videoOutput = m_videoWindow;
         }
-#if defined(HAVE_WIDGETS)
-        else if (qstrcmp(name, QVideoWidgetControl_iid) == 0) {
-            m_videoOutput = m_videoWidgetControl;
-        }
-#endif
 
         if (m_videoOutput) {
             m_captureSession->setViewfinder(m_videoOutput);

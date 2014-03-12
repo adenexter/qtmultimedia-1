@@ -57,6 +57,7 @@
 #include <QtCore/qvariant.h>
 
 #include <gst/gst.h>
+#include <gst/video/video.h>
 
 QT_BEGIN_NAMESPACE
 
@@ -75,10 +76,12 @@ public:
 
     QVariant handle() const { return m_handle; }
 private:
+    GstMapInfo m_info;
+    QVariant m_handle;
     GstBuffer *m_buffer;
     int m_bytesPerLine;
     MapMode m_mode;
-    QVariant m_handle;
+
 };
 
 QT_END_NAMESPACE

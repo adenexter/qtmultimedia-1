@@ -659,11 +659,11 @@ void tst_QCameraBackend::testVideoRecording()
 {
     QFETCH(QByteArray, device);
 
-    QCamera *camera = device.isEmpty() ? new QCamera : new QCamera(device);
+    QScopedPointer<QCamera> camera(device.isEmpty() ? new QCamera : new QCamera(device));
 
-    QMediaRecorder recorder(camera);
+    QMediaRecorder recorder(camera.data());
 
-    QSignalSpy errorSignal(camera, SIGNAL(error(QCamera::Error)));
+    QSignalSpy errorSignal(camera.data(), SIGNAL(error(QCamera::Error)));
     QSignalSpy recorderErrorSignal(&recorder, SIGNAL(error(QMediaRecorder::Error)));
     QSignalSpy recorderStatusSignal(&recorder, SIGNAL(statusChanged(QMediaRecorder::Status)));
 
@@ -710,8 +710,6 @@ void tst_QCameraBackend::testVideoRecording()
     camera->setCaptureMode(QCamera::CaptureStillImage);
     QTRY_COMPARE(recorder.status(), QMediaRecorder::UnloadedStatus);
     QCOMPARE(recorderStatusSignal.last().first().value<QMediaRecorder::Status>(), recorder.status());
-
-    delete camera;
 }
 
 QTEST_MAIN(tst_QCameraBackend)

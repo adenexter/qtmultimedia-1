@@ -42,25 +42,14 @@
 #include <QtCore/qvariant.h>
 #include <QtCore/qdebug.h>
 
-#if defined(HAVE_WIDGETS)
-#include <QtWidgets/qwidget.h>
-#endif
-
 #include "qgstreamerplayerservice.h"
 #include "qgstreamerplayercontrol.h"
 #include "qgstreamerplayersession.h"
 #include "qgstreamermetadataprovider.h"
 #include "qgstreameravailabilitycontrol.h"
 
-#if defined(HAVE_WIDGETS)
-#include <private/qgstreamervideowidget_p.h>
-#endif
 #include <private/qgstreamervideowindow_p.h>
 #include <private/qgstreamervideorenderer_p.h>
-
-#if defined(Q_WS_MAEMO_6) && defined(__arm__)
-#include "qgstreamergltexturerenderer.h"
-#endif
 
 #include "qgstreamerstreamscontrol.h"
 #include <private/qgstreameraudioprobecontrol_p.h>
@@ -74,12 +63,11 @@ QT_BEGIN_NAMESPACE
 
 QGstreamerPlayerService::QGstreamerPlayerService(QObject *parent):
      QMediaService(parent)
+     , m_audioProbeControl(0)
+     , m_videoProbeControl(0)
      , m_videoOutput(0)
      , m_videoRenderer(0)
      , m_videoWindow(0)
-#if defined(HAVE_WIDGETS)
-     , m_videoWidget(0)
-#endif
      , m_videoReferenceCount(0)
 {
     m_session = new QGstreamerPlayerSession(this);
@@ -88,21 +76,8 @@ QGstreamerPlayerService::QGstreamerPlayerService(QObject *parent):
     m_streamsControl = new QGstreamerStreamsControl(m_session,this);
     m_availabilityControl = new QGStreamerAvailabilityControl(m_control->resources(), this);
 
-#if defined(Q_WS_MAEMO_6) && defined(__arm__)
-    m_videoRenderer = new QGstreamerGLTextureRenderer(this);
-#else
     m_videoRenderer = new QGstreamerVideoRenderer(this);
-#endif
-
-#ifdef Q_WS_MAEMO_6
-    m_videoWindow = new QGstreamerVideoWindow(this, "omapxvsink");
-#else
     m_videoWindow = new QGstreamerVideoWindow(this);
-#endif
-
-#if defined(HAVE_WIDGETS)
-    m_videoWidget = new QGstreamerVideoWidgetControl(this);
-#endif
 }
 
 QGstreamerPlayerService::~QGstreamerPlayerService()
@@ -123,34 +98,30 @@ QMediaControl *QGstreamerPlayerService::requestControl(const char *name)
     if (qstrcmp(name, QMediaAvailabilityControl_iid) == 0)
         return m_availabilityControl;
 
-    if (qstrcmp(name,QMediaVideoProbeControl_iid) == 0) {
-        if (m_session) {
-            QGstreamerVideoProbeControl *probe = new QGstreamerVideoProbeControl(this);
+    if (qstrcmp(name, QMediaVideoProbeControl_iid) == 0) {
+        if (!m_videoProbeControl) {
             increaseVideoRef();
-            m_session->addProbe(probe);
-            return probe;
+            m_videoProbeControl = new QGstreamerVideoProbeControl(this);
+            m_session->addVideoProbe(m_videoProbeControl);
         }
-        return 0;
+        m_videoProbeControl->reference();
+        return m_videoProbeControl;
     }
 
-    if (qstrcmp(name,QMediaAudioProbeControl_iid) == 0) {
-        if (m_session) {
-            QGstreamerAudioProbeControl *probe = new QGstreamerAudioProbeControl(this);
-            m_session->addProbe(probe);
-            return probe;
+    if (qstrcmp(name, QMediaAudioProbeControl_iid) == 0) {
+        if (!m_audioProbeControl) {
+            m_audioProbeControl = new QGstreamerAudioProbeControl(this);
+            m_session->addAudioProbe(m_audioProbeControl);
         }
-        return 0;
+        m_audioProbeControl->reference();
+        return m_audioProbeControl;
     }
 
     if (!m_videoOutput) {
         if (qstrcmp(name, QVideoRendererControl_iid) == 0)
             m_videoOutput = m_videoRenderer;
-        else if (qstrcmp(name, QVideoWindowControl_iid) == 0)
-            m_videoOutput = m_videoWindow;
-#if defined(HAVE_WIDGETS)
-        else if (qstrcmp(name, QVideoWidgetControl_iid) == 0)
-            m_videoOutput = m_videoWidget;
-#endif
+//        else if (qstrcmp(name, QVideoWindowControl_iid) == 0)
+//            m_videoOutput = m_videoWindow;
 
         if (m_videoOutput) {
             increaseVideoRef();
@@ -164,28 +135,21 @@ QMediaControl *QGstreamerPlayerService::requestControl(const char *name)
 
 void QGstreamerPlayerService::releaseControl(QMediaControl *control)
 {
-    if (control == m_videoOutput) {
+    if (!control) {
+        return;
+    } else if (control == m_videoOutput) {
         m_videoOutput = 0;
         m_control->setVideoOutput(0);
         decreaseVideoRef();
-    }
-
-    QGstreamerVideoProbeControl* videoProbe = qobject_cast<QGstreamerVideoProbeControl*>(control);
-    if (videoProbe) {
-        if (m_session) {
-            m_session->removeProbe(videoProbe);
-            decreaseVideoRef();
-        }
-        delete videoProbe;
-        return;
-    }
-
-    QGstreamerAudioProbeControl* audioProbe = qobject_cast<QGstreamerAudioProbeControl*>(control);
-    if (audioProbe) {
-        if (m_session)
-            m_session->removeProbe(audioProbe);
-        delete audioProbe;
-        return;
+    } else if (control == m_videoProbeControl && m_videoProbeControl->release()) {
+        m_session->removeVideoProbe(m_videoProbeControl);
+        delete m_videoProbeControl;
+        m_videoProbeControl = 0;
+        decreaseVideoRef();
+    } else if (control == m_audioProbeControl && m_audioProbeControl->release()) {
+        m_session->removeAudioProbe(m_audioProbeControl);
+        delete m_audioProbeControl;
+        m_audioProbeControl = 0;
     }
 }
 

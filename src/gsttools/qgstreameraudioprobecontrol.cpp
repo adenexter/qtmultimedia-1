@@ -44,33 +44,46 @@
 
 QGstreamerAudioProbeControl::QGstreamerAudioProbeControl(QObject *parent)
     : QMediaAudioProbeControl(parent)
+    , m_referenceCount(0)
 {
-
 }
 
 QGstreamerAudioProbeControl::~QGstreamerAudioProbeControl()
 {
-
 }
 
-void QGstreamerAudioProbeControl::bufferProbed(GstBuffer* buffer)
+void QGstreamerAudioProbeControl::probeCaps(GstCaps *caps)
 {
-    GstCaps* caps = gst_buffer_get_caps(buffer);
-    if (!caps)
-        return;
-
     QAudioFormat format = QGstUtils::audioFormatForCaps(caps);
-    gst_caps_unref(caps);
-    if (!format.isValid())
-        return;
 
-    QAudioBuffer audioBuffer = QAudioBuffer(QByteArray((const char*)buffer->data, buffer->size), format);
+    QMutexLocker locker(&m_bufferMutex);
+    m_format = format;
+}
 
-    {
-        QMutexLocker locker(&m_bufferMutex);
-        m_pendingBuffer = audioBuffer;
-        QMetaObject::invokeMethod(this, "bufferProbed", Qt::QueuedConnection);
+GstPadProbeReturn QGstreamerAudioProbeControl::probeBuffer(GstBuffer *buffer)
+{
+    qint64 position = GST_BUFFER_TIMESTAMP(buffer);
+    position = position >= 0
+            ? position / G_GINT64_CONSTANT(1000) // microseconds
+            : -1;
+
+    QByteArray data;
+    GstMapInfo info;
+    if (gst_buffer_map(buffer, &info, GST_MAP_READ)) {
+        data = QByteArray(reinterpret_cast<const char *>(info.data), info.size);
+        gst_buffer_unmap(buffer, &info);
+    } else {
+        return GST_PAD_PROBE_OK;
     }
+
+    QMutexLocker locker(&m_bufferMutex);
+    if (m_format.isValid()) {
+        if (!m_pendingBuffer.isValid())
+            QMetaObject::invokeMethod(this, "bufferProbed", Qt::QueuedConnection);
+        m_pendingBuffer = QAudioBuffer(data, m_format, position / 1000);
+    }
+
+    return GST_PAD_PROBE_OK;
 }
 
 void QGstreamerAudioProbeControl::bufferProbed()
@@ -81,6 +94,7 @@ void QGstreamerAudioProbeControl::bufferProbed()
         if (!m_pendingBuffer.isValid())
             return;
         audioBuffer = m_pendingBuffer;
+        m_pendingBuffer = QAudioBuffer();
     }
     emit audioBufferProbed(audioBuffer);
 }

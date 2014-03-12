@@ -59,33 +59,24 @@
 #include <private/qgstreamervideorenderer_p.h>
 #include <private/qgstreamervideowindow_p.h>
 
-#if defined(HAVE_WIDGETS)
-#include <private/qgstreamervideowidget_p.h>
-#endif
-
 #include <qmediaserviceproviderplugin.h>
 
 QT_BEGIN_NAMESPACE
 
-QGstreamerCaptureService::QGstreamerCaptureService(const QString &service, QObject *parent):
-    QMediaService(parent)
+QGstreamerCaptureService::QGstreamerCaptureService(const QString &service, QObject *parent)
+    : QMediaService(parent)
+    , m_captureSession(0)
+    , m_cameraControl(0)
+    , m_videoInput(0)
+    , m_metaDataControl(0)
+    , m_audioInputSelector(0)
+    , m_videoInputDevice(0)
+    , m_videoOutput(0)
+    , m_videoRenderer(0)
+    , m_videoWindow(0)
+    , m_imageCaptureControl(0)
+    , m_audioProbeControl(0)
 {
-    m_captureSession = 0;
-    m_cameraControl = 0;
-    m_metaDataControl = 0;
-
-    m_videoInput = 0;
-    m_audioInputSelector = 0;
-    m_videoInputDevice = 0;
-
-    m_videoOutput = 0;
-    m_videoRenderer = 0;
-    m_videoWindow = 0;
-#if defined(HAVE_WIDGETS)
-    m_videoWidgetControl = 0;
-#endif
-    m_imageCaptureControl = 0;
-
     if (service == Q_MEDIASERVICE_AUDIOSOURCE) {
         m_captureSession = new QGstreamerCaptureSession(QGstreamerCaptureSession::Audio, this);
     }
@@ -105,10 +96,6 @@ QGstreamerCaptureService::QGstreamerCaptureService(const QString &service, QObje
 
         m_videoRenderer = new QGstreamerVideoRenderer(this);
         m_videoWindow = new QGstreamerVideoWindow(this);
-
-#if defined(HAVE_WIDGETS)
-        m_videoWidgetControl = new QGstreamerVideoWidgetControl(this);
-#endif
         m_imageCaptureControl = new QGstreamerImageCaptureControl(m_captureSession);
     }
 
@@ -164,12 +151,12 @@ QMediaControl *QGstreamerCaptureService::requestControl(const char *name)
         return m_imageCaptureControl;
 
     if (qstrcmp(name,QMediaAudioProbeControl_iid) == 0) {
-        if (m_captureSession) {
-            QGstreamerAudioProbeControl *probe = new QGstreamerAudioProbeControl(this);
-            m_captureSession->addProbe(probe);
-            return probe;
+        if (!m_audioProbeControl) {
+            m_audioProbeControl = new QGstreamerAudioProbeControl(this);
+            m_captureSession->addAudioProbe(m_audioProbeControl);
         }
-        return 0;
+        m_audioProbeControl->reference();
+        return m_audioProbeControl;
     }
 
     if (!m_videoOutput) {
@@ -178,11 +165,6 @@ QMediaControl *QGstreamerCaptureService::requestControl(const char *name)
         } else if (qstrcmp(name, QVideoWindowControl_iid) == 0) {
             m_videoOutput = m_videoWindow;
         }
-#if defined(HAVE_WIDGETS)
-        else if (qstrcmp(name, QVideoWidgetControl_iid) == 0) {
-            m_videoOutput = m_videoWidgetControl;
-        }
-#endif
 
         if (m_videoOutput) {
             m_captureSession->setVideoPreview(m_videoOutput);
@@ -195,17 +177,15 @@ QMediaControl *QGstreamerCaptureService::requestControl(const char *name)
 
 void QGstreamerCaptureService::releaseControl(QMediaControl *control)
 {
-    if (control && control == m_videoOutput) {
+    if (!control) {
+        return;
+    } else if (control == m_videoOutput) {
         m_videoOutput = 0;
         m_captureSession->setVideoPreview(0);
-    }
-
-    QGstreamerAudioProbeControl* audioProbe = qobject_cast<QGstreamerAudioProbeControl*>(control);
-    if (audioProbe) {
-        if (m_captureSession)
-            m_captureSession->removeProbe(audioProbe);
-        delete audioProbe;
-        return;
+    } else if (control == m_audioProbeControl && m_audioProbeControl->release()) {
+        m_captureSession->removeAudioProbe(m_audioProbeControl);
+        delete m_audioProbeControl;
+        m_audioProbeControl = 0;
     }
 }
 

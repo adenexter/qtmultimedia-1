@@ -104,7 +104,7 @@ GstEncodingContainerProfile *CameraBinContainer::createProfile()
     GstCaps *caps;
 
     if (m_actualFormat.isEmpty()) {
-        caps = gst_caps_new_any();
+        return 0;
     } else {
         QString format = m_actualFormat;
         QStringList supportedFormats = m_supportedContainers.supportedCodecs();

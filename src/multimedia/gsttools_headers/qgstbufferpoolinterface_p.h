@@ -62,7 +62,23 @@
 
 QT_BEGIN_NAMESPACE
 
+class QAbstractVideoSurface;
+
 const QLatin1String QGstBufferPoolPluginKey("bufferpool");
+
+class QGstBufferPool
+{
+public:
+    virtual ~QGstBufferPool() {}
+
+    virtual GstCaps *getCaps(QAbstractVideoSurface *surface) = 0;
+    virtual bool start(QAbstractVideoSurface *surface, GstCaps *caps) = 0;
+    virtual void stop(QAbstractVideoSurface *surface) = 0;  // surface may be null if unexpectedly deleted.
+    virtual bool proposeAllocation(GstQuery *query) = 0;    // may be called from a thread.
+
+    virtual bool present(QAbstractVideoSurface *surface, GstBuffer *buffer) = 0;
+    virtual void flush(QAbstractVideoSurface *surface) = 0; // surface may be null if unexpectedly deleted.
+};
 
 /*!
     Abstract interface for video buffers allocation.
@@ -72,19 +88,7 @@ class QGstBufferPoolInterface
 public:
     virtual ~QGstBufferPoolInterface() {}
 
-    virtual bool isFormatSupported(const QVideoSurfaceFormat &format) const = 0;
-    virtual GstBuffer *takeBuffer(const QVideoSurfaceFormat &format, GstCaps *caps) = 0;
-    virtual void clear() = 0;
-
-    virtual QAbstractVideoBuffer::HandleType handleType() const = 0;
-
-    /*!
-      Build an QAbstractVideoBuffer instance from GstBuffer.
-      Returns NULL if GstBuffer is not compatible with this buffer pool.
-
-      This method is called from gstreamer video sink thread.
-     */
-    virtual QAbstractVideoBuffer *prepareVideoBuffer(GstBuffer *buffer, int bytesPerLine) = 0;
+    virtual QGstBufferPool *createPool() = 0;
 };
 
 #define QGstBufferPoolInterface_iid "org.qt-project.qt.gstbufferpool/5.0"
@@ -98,19 +102,8 @@ public:
     explicit QGstBufferPoolPlugin(QObject *parent = 0);
     virtual ~QGstBufferPoolPlugin() {}
 
-    virtual bool isFormatSupported(const QVideoSurfaceFormat &format) const = 0;
-    virtual GstBuffer *takeBuffer(const QVideoSurfaceFormat &format, GstCaps *caps) = 0;
-    virtual void clear() = 0;
+    virtual QGstBufferPool *createPool() = 0;
 
-    virtual QAbstractVideoBuffer::HandleType handleType() const = 0;
-
-    /*!
-      Build an QAbstractVideoBuffer instance from compatible GstBuffer.
-      Returns NULL if GstBuffer is not compatible with this buffer pool.
-
-      This method is called from gstreamer video sink thread.
-     */
-    virtual QAbstractVideoBuffer *prepareVideoBuffer(GstBuffer *buffer, int bytesPerLine) = 0;
 };
 
 QT_END_NAMESPACE

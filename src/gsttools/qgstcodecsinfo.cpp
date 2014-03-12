@@ -52,8 +52,6 @@
 QGstCodecsInfo::QGstCodecsInfo(QGstCodecsInfo::ElementType elementType)
 {
 
-#if GST_CHECK_VERSION(0,10,31)
-
     GstElementFactoryListType gstElementType = 0;
     switch (elementType) {
     case AudioEncoder:
@@ -93,9 +91,6 @@ QGstCodecsInfo::QGstCodecsInfo(QGstCodecsInfo::ElementType elementType)
 
         gst_caps_remove_structure(caps, 0);
     }
-#else
-    Q_UNUSED(elementType);
-#endif // GST_CHECK_VERSION(0,10,31)
 }
 
 QStringList QGstCodecsInfo::supportedCodecs() const
@@ -107,8 +102,6 @@ QString QGstCodecsInfo::codecDescription(const QString &codec) const
 {
     return m_codecDescriptions.value(codec);
 }
-
-#if GST_CHECK_VERSION(0,10,31)
 
 /*!
   List all supported caps for all installed elements of type \a elementType.
@@ -125,8 +118,8 @@ GstCaps* QGstCodecsInfo::supportedElementCaps(GstElementFactoryListType elementT
 
     QSet<QByteArray> fakeEncoderMimeTypes;
     fakeEncoderMimeTypes << "unknown/unknown"
-                  << "audio/x-raw-int" << "audio/x-raw-float"
-                  << "video/x-raw-yuv" << "video/x-raw-rgb";
+                  << "audio/x-raw"
+                  << "video/x-raw";
 
     QSet<QByteArray> fieldsToAdd;
     fieldsToAdd << "mpegversion" << "layer" << "layout" << "raversion"
@@ -151,7 +144,7 @@ GstCaps* QGstCodecsInfo::supportedElementCaps(GstElementFactoryListType elementT
                     if (fakeEncoderMimeTypes.contains(gst_structure_get_name(structure)))
                         continue;
 
-                    GstStructure *newStructure = gst_structure_new(gst_structure_get_name(structure), NULL);
+                    GstStructure *newStructure = gst_structure_new_empty(gst_structure_get_name(structure));
 
                     //add structure fields to distinguish between formats with similar mime types,
                     //like audio/mpeg
@@ -180,4 +173,3 @@ GstCaps* QGstCodecsInfo::supportedElementCaps(GstElementFactoryListType elementT
 
     return res;
 }
-#endif //GST_CHECK_VERSION(0,10,31)

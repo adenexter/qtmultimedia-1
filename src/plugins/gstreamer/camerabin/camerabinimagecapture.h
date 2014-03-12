@@ -46,6 +46,8 @@
 #include <qcameraimagecapturecontrol.h>
 #include "camerabinsession.h"
 
+#include <qvideosurfaceformat.h>
+
 QT_BEGIN_NAMESPACE
 
 class CameraBinImageCapture : public QCameraImageCaptureControl, public QGstreamerBusMessageFilter
@@ -69,15 +71,19 @@ private slots:
     void updateState();
 
 private:
-    static gboolean metadataEventProbe(GstPad *pad, GstEvent *event, CameraBinImageCapture *);
-    static gboolean uncompressedBufferProbe(GstPad *pad, GstBuffer *buffer, CameraBinImageCapture *);
-    static gboolean jpegBufferProbe(GstPad *pad, GstBuffer *buffer, CameraBinImageCapture *);
+    static GstPadProbeReturn encoderEventProbe(GstPad *pad, GstPadProbeInfo *info, gpointer user_data);
+    static GstPadProbeReturn encoderBufferProbe(GstPad *pad, GstPadProbeInfo *info, gpointer user_data);
+    static GstPadProbeReturn muxerEventProbe(GstPad *pad, GstPadProbeInfo *info, gpointer user_data);
+    static GstPadProbeReturn muxerBufferProbe(GstPad *pad, GstPadProbeInfo *info, gpointer user_data);
 
+    QVideoSurfaceFormat m_bufferFormat;
+    QSize m_jpegResolution;
     CameraBinSession *m_session;
-    bool m_ready;
-    int m_requestId;
     GstElement *m_jpegEncoderElement;
     GstElement *m_metadataMuxerElement;
+    int m_bytesPerLine;
+    int m_requestId;
+    bool m_ready;
 };
 
 QT_END_NAMESPACE
