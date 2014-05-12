@@ -146,7 +146,7 @@ This package contains the EGLImageKHR video scene graph support.
 export QTDIR=/usr/share/qt5
 touch .git
 
-%qmake5 GST_VERSION=1.0 QT.widgets.name= DEFINES+=QT_NO_WIDGETS
+%qmake5 GST_VERSION=1.0 QT.widgets.name= DEFINES+=QT_NO_WIDGETS -r "DEFINES+=NEMO_AUDIO"
 make %{?_smp_mflags}
 
 %install
