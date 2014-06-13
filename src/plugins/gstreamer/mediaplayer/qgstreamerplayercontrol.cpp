@@ -42,6 +42,7 @@
 #include <QtCore/qsocketnotifier.h>
 #include <QtCore/qurl.h>
 #include <QtCore/qdebug.h>
+#include <QTimer>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -49,6 +50,11 @@
 #include <unistd.h>
 
 //#define DEBUG_PLAYBIN
+
+// 2 second timeout for releasing the resources
+// Value was selected as combination of fair dice roll and personal
+// feeling when testing.
+#define RELEASE_TIMER_TIMEOUT (1000 * 2)
 
 QT_BEGIN_NAMESPACE
 
@@ -63,6 +69,7 @@ QGstreamerPlayerControl::QGstreamerPlayerControl(QGstreamerPlayerSession *sessio
     , m_pendingSeekPosition(-1)
     , m_setMediaPending(false)
     , m_stream(0)
+    , m_releaseTimer(0)
 {
     m_resources = QMediaResourcePolicy::createResourceSet<QMediaPlayerResourceSetInterface>();
     Q_ASSERT(m_resources);
@@ -100,10 +107,16 @@ QGstreamerPlayerControl::QGstreamerPlayerControl(QGstreamerPlayerSession *sessio
     //so handleResourcesDenied should be processed later, otherwise it will be overwritten by state update later in playOrPause.
     connect(m_resources, SIGNAL(resourcesDenied()), this, SLOT(handleResourcesDenied()), Qt::QueuedConnection);
     connect(m_resources, SIGNAL(resourcesLost()), SLOT(handleResourcesLost()));
+
+    m_releaseTimer = new QTimer(this);
+    m_releaseTimer->setSingleShot(true);
+
+    connect(m_releaseTimer, SIGNAL(timeout()), this, SLOT(handleRelease()));
 }
 
 QGstreamerPlayerControl::~QGstreamerPlayerControl()
 {
+    stopReleaseTimer();
     QMediaResourcePolicy::destroyResourceSet(m_resources);
 }
 
@@ -208,6 +221,7 @@ void QGstreamerPlayerControl::play()
     //m_userRequestedState is needed to know that we need to resume playback when resource-policy
     //regranted the resources after lost, since m_currentState will become paused when resources are
     //lost.
+    stopReleaseTimer();
     m_userRequestedState = QMediaPlayer::PlayingState;
     playOrPause(QMediaPlayer::PlayingState);
 }
@@ -217,6 +231,7 @@ void QGstreamerPlayerControl::pause()
 #ifdef DEBUG_PLAYBIN
     qDebug() << Q_FUNC_INFO;
 #endif
+    restartReleaseTimer();
     m_userRequestedState = QMediaPlayer::PausedState;
 
     playOrPause(QMediaPlayer::PausedState);
@@ -316,6 +331,8 @@ void QGstreamerPlayerControl::stop()
             emit positionChanged(position());
         }
     }
+
+    restartReleaseTimer();
 
     popAndNotifyState();
 }
@@ -536,6 +553,8 @@ void QGstreamerPlayerControl::processEOS()
         m_session->showPrerollFrames(false); // stop showing prerolled frames in stop state
     }
 
+    restartReleaseTimer();
+
     popAndNotifyState();
 }
 
@@ -645,6 +664,28 @@ void QGstreamerPlayerControl::popAndNotifyState()
 #endif
             emit mediaStatusChanged(m_mediaStatus);
         }
+    }
+}
+
+void QGstreamerPlayerControl::restartReleaseTimer()
+{
+    stopReleaseTimer();
+    m_releaseTimer->start(RELEASE_TIMER_TIMEOUT);
+}
+
+void QGstreamerPlayerControl::stopReleaseTimer()
+{
+    m_releaseTimer->stop();
+}
+
+void QGstreamerPlayerControl::handleRelease()
+{
+    if (m_currentState != QMediaPlayer::PlayingState ||
+        m_mediaStatus == QMediaPlayer::EndOfMedia) {
+#ifdef DEBUG_PLAYBIN
+        qDebug() << "handleRelease currentState " << m_currentState << " mediaStatus " << m_mediaStatus;
+#endif
+        m_resources->release();
     }
 }
 
