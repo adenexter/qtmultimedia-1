@@ -646,6 +646,16 @@ void QCameraExposure::setAutoShutterSpeed()
     \value ExposureBeach         Beach exposure mode.
     \value ExposureLargeAperture Use larger aperture with small depth of field.
     \value ExposureSmallAperture Use smaller aperture.
+    \value ExposureAction        Action mode. Since 5.4
+    \value ExposureLandscape     Landscape mode. Since 5.4
+    \value ExposureNightPortrait Night portrait mode. Since 5.4
+    \value ExposureTheatre       Theatre mode. Since 5.4
+    \value ExposureSunset        Sunset mode. Since 5.4
+    \value ExposureSteadyPhoto   Steady photo mode. Since 5.4
+    \value ExposureFireworks     Fireworks mode. Since 5.4
+    \value ExposureParty         Party mode. Since 5.4
+    \value ExposureCandlelight   Candlelight mode. Since 5.4
+    \value ExposureBarcode       Barcode mode. Since 5.4
     \value ExposureModeVendor    The base value for device specific exposure modes.
 */
 
