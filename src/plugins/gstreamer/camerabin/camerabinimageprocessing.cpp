@@ -63,6 +63,30 @@ CameraBinImageProcessing::CameraBinImageProcessing(CameraBinSession *session)
       m_mappedWbValues[GST_PHOTOGRAPHY_WB_MODE_TUNGSTEN] = QCameraImageProcessing::WhiteBalanceTungsten;
       m_mappedWbValues[GST_PHOTOGRAPHY_WB_MODE_FLUORESCENT] = QCameraImageProcessing::WhiteBalanceFluorescent;
       unlockWhiteBalance();
+
+#if GST_CHECK_VERSION(1, 0, 0)
+      m_filterMap.insert(QCameraImageProcessing::FilterNone, GST_PHOTOGRAPHY_COLOR_TONE_MODE_NORMAL);
+      if (m_session->photography()) {
+          m_filterMap.insert(QCameraImageProcessing::FilterSepia, GST_PHOTOGRAPHY_COLOR_TONE_MODE_SEPIA);
+          m_filterMap.insert(QCameraImageProcessing::FilterGrayscale, GST_PHOTOGRAPHY_COLOR_TONE_MODE_GRAYSCALE);
+          m_filterMap.insert(QCameraImageProcessing::FilterNegative, GST_PHOTOGRAPHY_COLOR_TONE_MODE_NEGATIVE);
+          m_filterMap.insert(QCameraImageProcessing::FilterSolarize, GST_PHOTOGRAPHY_COLOR_TONE_MODE_SOLARIZE);
+#if GST_CHECK_VERSION(1, 2, 0)
+          m_filterMap.insert(QCameraImageProcessing::FilterPosterize, GST_PHOTOGRAPHY_COLOR_TONE_MODE_POSTERIZE);
+          m_filterMap.insert(QCameraImageProcessing::FilterWhiteboard, GST_PHOTOGRAPHY_COLOR_TONE_MODE_WHITEBOARD);
+          m_filterMap.insert(QCameraImageProcessing::FilterBlackboard, GST_PHOTOGRAPHY_COLOR_TONE_MODE_BLACKBOARD);
+          m_filterMap.insert(QCameraImageProcessing::FilterAqua, GST_PHOTOGRAPHY_COLOR_TONE_MODE_AQUA);
+#endif
+      }
+#else
+      m_filterMap.insert(QCameraImageProcessing::FilterNone, GST_PHOTOGRAPHY_COLOUR_TONE_MODE_NORMAL);
+      if (m_session->photography()) {
+          m_filterMap.insert(QCameraImageProcessing::FilterSepia, GST_PHOTOGRAPHY_COLOUR_TONE_MODE_SEPIA);
+          m_filterMap.insert(QCameraImageProcessing::FilterGrayscale, GST_PHOTOGRAPHY_COLOUR_TONE_MODE_GRAYSCALE);
+          m_filterMap.insert(QCameraImageProcessing::FilterNegative, GST_PHOTOGRAPHY_COLOUR_TONE_MODE_NEGATIVE);
+          m_filterMap.insert(QCameraImageProcessing::FilterSolarize, GST_PHOTOGRAPHY_COLOUR_TONE_MODE_SOLARIZE);
+      }
+#endif
 #endif
 
     updateColorBalanceValues();
@@ -187,6 +211,14 @@ bool CameraBinImageProcessing::isParameterValueSupported(QCameraImageProcessingC
         return qAbs(value.toReal()) <= 1.0;
     case WhiteBalancePreset:
         return isWhiteBalanceModeSupported(value.value<QCameraImageProcessing::WhiteBalanceMode>());
+    case Filter: {
+        const QCameraImageProcessing::Filter filter = value.value<QCameraImageProcessing::Filter>();
+#ifdef HAVE_GST_PHOTOGRAPHY
+        return m_filterMap.contains(filter);
+#else
+        return filter == QCameraImageProcessing.FilterNone;
+#endif
+    }
     default:
         break;
     }
@@ -197,12 +229,28 @@ bool CameraBinImageProcessing::isParameterValueSupported(QCameraImageProcessingC
 QVariant CameraBinImageProcessing::parameter(
         QCameraImageProcessingControl::ProcessingParameter parameter) const
 {
-    if (parameter == QCameraImageProcessingControl::WhiteBalancePreset)
+    switch (parameter) {
+    case QCameraImageProcessingControl::WhiteBalancePreset:
         return QVariant::fromValue<QCameraImageProcessing::WhiteBalanceMode>(whiteBalanceMode());
-    else if (m_values.contains(parameter))
-        return m_values.value(parameter);
-    else
-        return QVariant();
+    case QCameraImageProcessingControl::Filter:
+#ifdef HAVE_GST_PHOTOGRAPHY
+        if (GstPhotography *photography = m_session->photography()) {
+#if GST_CHECK_VERSION(1, 0, 0)
+            GstPhotographyColorToneMode mode = GST_PHOTOGRAPHY_COLOR_TONE_MODE_NORMAL;
+            gst_photography_get_color_tone_mode(photography, &mode);
+#else
+            GstPhotographyColorToneMode mode = GST_PHOTOGRAPHY_COLOUR_TONE_MODE_NORMAL;
+            gst_photography_get_colour_tone_mode(photography, &mode);
+#endif
+            return QVariant::fromValue(m_filterMap.key(mode, QCameraImageProcessing::FilterNone));
+        }
+#endif
+        return QVariant::fromValue(QCameraImageProcessing::FilterNone);
+    default:
+        return m_values.contains(parameter)
+                ? QVariant(m_values.value(parameter))
+                : QVariant();
+    }
 }
 
 void CameraBinImageProcessing::setParameter(QCameraImageProcessingControl::ProcessingParameter parameter,
@@ -220,6 +268,21 @@ void CameraBinImageProcessing::setParameter(QCameraImageProcessingControl::Proce
         break;
     case WhiteBalancePreset:
         setWhiteBalanceMode(value.value<QCameraImageProcessing::WhiteBalanceMode>());
+        break;
+    case QCameraImageProcessingControl::Filter:
+#ifdef HAVE_GST_PHOTOGRAPHY
+        if (GstPhotography *photography = m_session->photography()) {
+#if GST_CHECK_VERSION(1, 0, 0)
+            gst_photography_set_color_tone_mode(photography, m_filterMap.value(
+                        value.value<QCameraImageProcessing::Filter>(),
+                        GST_PHOTOGRAPHY_COLOR_TONE_MODE_NORMAL));
+#else
+            gst_photography_set_colour_tone_mode(photography, m_filterMap.value(
+                        value.value<QCameraImageProcessing::Filter>(),
+                        GST_PHOTOGRAPHY_COLOUR_TONE_MODE_NORMAL));
+#endif
+        }
+#endif
         break;
     default:
         break;

@@ -228,6 +228,40 @@ void QDeclarativeCameraImageProcessing::setDenoisingLevel(qreal value)
 }
 
 /*!
+    \qmlproperty QtMultimedia::Camera::filter
+
+    This property holds which filter if any will be applied to image data captured by the camera.
+
+    It can be one of:
+
+    \table
+    \row \li CameraImageProcessing.FilterNone       \li No filter is applied to images.
+    \row \li CameraImageProcessing.FilterGrayscale  \li A grayscale filter.
+    \row \li CameraImageProcessing.FilterNegative   \li A negative filter.
+    \row \li CameraImageProcessing.FilterSolarize   \li A solarize filter.
+    \row \li CameraImageProcessing.FilterSepia      \li A sepia filter.
+    \row \li CameraImageProcessing.FilterPosterize  \li A posterize filter.
+    \row \li CameraImageProcessing.FilterWhiteboard \li A whiteboard filter.
+    \row \li CameraImageProcessing.FilterBlackboard \li A blackboard filter.
+    \row \li CameraImageProcessing.FilterAqua       \li An aqua filter.
+    \row \li CameraImageProcessing.FilterVendor     \li The base value for vendor defined filters.
+    \endtable
+*/
+
+QDeclarativeCameraImageProcessing::Filter QDeclarativeCameraImageProcessing::filter() const
+{
+    return Filter(m_imageProcessing->filter());
+}
+
+void QDeclarativeCameraImageProcessing::setFilter(Filter filter)
+{
+    if (this->filter() != filter) {
+        m_imageProcessing->setFilter(QCameraImageProcessing::Filter(filter));
+        emit filterChanged();
+    }
+}
+
+/*!
     \qmlsignal QtMultimedia::Camera::whiteBalanceModeChanged(Camera::WhiteBalanceMode)
     This signal is emitted when the \c whiteBalanceMode property is changed.
 

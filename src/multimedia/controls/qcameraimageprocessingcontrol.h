@@ -74,6 +74,7 @@ public:
         BrightnessAdjustment,
         SharpeningAdjustment,
         DenoisingAdjustment,
+        Filter,
         ExtendedParameter = 1000
     };
 

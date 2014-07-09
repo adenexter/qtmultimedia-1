@@ -60,6 +60,7 @@ namespace
         QCameraImageProcessingPrivateRegisterMetaTypes()
         {
             qRegisterMetaType<QCameraImageProcessing::WhiteBalanceMode>();
+            qRegisterMetaType<QCameraImageProcessing::Filter>();
         }
     } _registerMetaTypes;
 }
@@ -329,6 +330,59 @@ void QCameraImageProcessing::setDenoisingLevel(qreal level)
     \value WhiteBalanceSunset       Sunset white balance mode.
     \value WhiteBalanceVendor       Base value for vendor defined white balance modes.
 */
+
+/*!
+    \enum QCameraImageProcessing::Filter
+
+    \value FilterNone               No filter is applied to images.
+    \value FilterGrayscale          A grayscale filter.
+    \value FilterNegative           A negative filter.
+    \value FilterSolarize           A solarize filter.
+    \value FilterSepia              A sepia filter.
+    \value FilterPosterize          A posterize filter.
+    \value FilterWhiteboard         A whiteboard filter.
+    \value FilterBlackboard         A blackboard filter.
+    \value FilterAqua               An aqua filter.
+    \value FilterVendor             The base value for vendor defined filters.
+
+    \since 5.4
+*/
+
+/*!
+    \property QCameraImageProcessing::filter
+
+    This property holds which filter if any will be applied to image data captured by the camera.
+
+    \since 5.4
+*/
+
+QCameraImageProcessing::Filter QCameraImageProcessing::filter() const
+{
+    return d_func()->imageControl->parameter(QCameraImageProcessingControl::Filter)
+            .value<QCameraImageProcessing::Filter>();
+}
+
+void QCameraImageProcessing::setFilter(QCameraImageProcessing::Filter filter)
+{
+    d_func()->imageControl->setParameter(
+                QCameraImageProcessingControl::Filter,
+                QVariant::fromValue<QCameraImageProcessing::Filter>(filter));
+}
+
+/*!
+    Returns true if a \a filter is supported.
+
+    \since 5.4
+*/
+
+bool QCameraImageProcessing::isFilterSupported(QCameraImageProcessing::Filter filter) const
+{
+    return d_func()->imageControl->isParameterValueSupported(
+                QCameraImageProcessingControl::Filter,
+                QVariant::fromValue<QCameraImageProcessing::Filter>(filter));
+
+}
+
 
 #include "moc_qcameraimageprocessing.cpp"
 QT_END_NAMESPACE

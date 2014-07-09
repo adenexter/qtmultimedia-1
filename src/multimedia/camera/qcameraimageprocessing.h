@@ -62,7 +62,8 @@ class QCameraImageProcessingPrivate;
 class Q_MULTIMEDIA_EXPORT QCameraImageProcessing : public QObject
 {
     Q_OBJECT
-    Q_ENUMS(WhiteBalanceMode)
+    Q_PROPERTY(Filter filter READ filter WRITE setFilter)
+    Q_ENUMS(WhiteBalanceMode Filter)
 public:
     enum WhiteBalanceMode {
         WhiteBalanceAuto = 0,
@@ -75,6 +76,19 @@ public:
         WhiteBalanceFlash = 7,
         WhiteBalanceSunset = 8,
         WhiteBalanceVendor = 1000
+    };
+
+    enum Filter {
+        FilterNone,
+        FilterGrayscale,
+        FilterNegative,
+        FilterSolarize,
+        FilterSepia,
+        FilterPosterize,
+        FilterWhiteboard,
+        FilterBlackboard,
+        FilterAqua,
+        FilterVendor = 1000
     };
 
     bool isAvailable() const;
@@ -98,6 +112,10 @@ public:
     qreal denoisingLevel() const;
     void setDenoisingLevel(qreal value);
 
+    Filter filter() const;
+    void setFilter(Filter filter);
+    bool isFilterSupported(Filter filter) const;
+
 private:
     friend class QCamera;
     friend class QCameraPrivate;
@@ -112,7 +130,9 @@ private:
 QT_END_NAMESPACE
 
 Q_DECLARE_METATYPE(QCameraImageProcessing::WhiteBalanceMode)
+Q_DECLARE_METATYPE(QCameraImageProcessing::Filter)
 
 Q_MEDIA_ENUM_DEBUG(QCameraImageProcessing, WhiteBalanceMode)
+Q_MEDIA_ENUM_DEBUG(QCameraImageProcessing, Filter)
 
 #endif  // QCAMERAIMAGEPROCESSING_H

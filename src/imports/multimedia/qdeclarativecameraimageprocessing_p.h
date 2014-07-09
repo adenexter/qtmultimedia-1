@@ -64,6 +64,7 @@ class QDeclarativeCameraImageProcessing : public QObject
 {
     Q_OBJECT
     Q_ENUMS(WhiteBalanceMode)
+    Q_ENUMS(Filter)
 
     Q_PROPERTY(WhiteBalanceMode whiteBalanceMode READ whiteBalanceMode WRITE setWhiteBalanceMode NOTIFY whiteBalanceModeChanged)
     Q_PROPERTY(qreal manualWhiteBalance READ manualWhiteBalance WRITE setManualWhiteBalance NOTIFY manualWhiteBalanceChanged)
@@ -71,7 +72,7 @@ class QDeclarativeCameraImageProcessing : public QObject
     Q_PROPERTY(qreal saturation READ saturation WRITE setSaturation NOTIFY saturationChanged)
     Q_PROPERTY(qreal sharpeningLevel READ sharpeningLevel WRITE setSharpeningLevel NOTIFY sharpeningLevelChanged)
     Q_PROPERTY(qreal denoisingLevel READ denoisingLevel WRITE setDenoisingLevel NOTIFY denoisingLevelChanged)
-
+    Q_PROPERTY(Filter filter READ filter WRITE setFilter NOTIFY filterChanged)
 public:
     enum WhiteBalanceMode {
         WhiteBalanceAuto = QCameraImageProcessing::WhiteBalanceAuto,
@@ -86,6 +87,19 @@ public:
         WhiteBalanceVendor = QCameraImageProcessing::WhiteBalanceVendor
     };
 
+    enum Filter {
+        FilterNone = QCameraImageProcessing::FilterNone,
+        FilterGrayscale = QCameraImageProcessing::FilterGrayscale,
+        FilterNegative = QCameraImageProcessing::FilterNegative,
+        FilterSolarize = QCameraImageProcessing::FilterSolarize,
+        FilterSepia = QCameraImageProcessing::FilterSepia,
+        FilterPosterize = QCameraImageProcessing::FilterPosterize,
+        FilterWhiteboard = QCameraImageProcessing::FilterWhiteboard,
+        FilterBlackboard = QCameraImageProcessing::FilterBlackboard,
+        FilterAqua = QCameraImageProcessing::FilterAqua,
+        FilterVendor = QCameraImageProcessing::FilterVendor
+    };
+
     ~QDeclarativeCameraImageProcessing();
 
     WhiteBalanceMode whiteBalanceMode() const;
@@ -96,6 +110,8 @@ public:
     qreal sharpeningLevel() const;
     qreal denoisingLevel() const;
 
+    Filter filter() const;
+
 public Q_SLOTS:
     void setWhiteBalanceMode(QDeclarativeCameraImageProcessing::WhiteBalanceMode mode) const;
     void setManualWhiteBalance(qreal colorTemp) const;
@@ -105,6 +121,8 @@ public Q_SLOTS:
     void setSharpeningLevel(qreal value);
     void setDenoisingLevel(qreal value);
 
+    void setFilter(Filter filter);
+
 Q_SIGNALS:
     void whiteBalanceModeChanged(QDeclarativeCameraImageProcessing::WhiteBalanceMode) const;
     void manualWhiteBalanceChanged(qreal) const;
@@ -113,6 +131,8 @@ Q_SIGNALS:
     void saturationChanged(qreal);
     void sharpeningLevelChanged(qreal);
     void denoisingLevelChanged(qreal);
+
+    void filterChanged();
 
 private:
     friend class QDeclarativeCamera;
