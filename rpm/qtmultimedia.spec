@@ -125,6 +125,23 @@ Requires:   %{name} = %{version}-%{release}
 %description plugin-audio-pulseaudio
 This package contains the pulse audio sound effect support.
 
+%package plugin-audio-alsa
+Summary:    Qt Multimedia - Alsa audio plugin
+Group:      Qt/Qt
+Requires:   %{name} = %{version}-%{release}
+
+%description plugin-audio-alsa
+This package contains the alsa sound effect support.
+
+
+%package plugin-videonode-egl
+Summary:    Qt Multimedia - EGL video node plugin
+Group:      Qt/Qt
+Requires:   %{name} = %{version}-%{release}
+Requires:   qt5-qtdeclarative-import-multimedia = %{version}-%{release}
+
+%description plugin-videonode-egl
+This package contains the EGLImageKHR video node support.
 
 %prep
 %setup -q -n %{name}-%{version}
@@ -231,3 +248,10 @@ rm -rf %{buildroot}/%{_includedir}/qt5/Qt
 %defattr(-,root,root,-)
 %{_libdir}/qt5/plugins/audio/libqtmedia_pulse.so
 
+%files plugin-audio-alsa
+%defattr(-,root,root,-)
+%{_libdir}/qt5/plugins/audio/libqtaudio_alsa.so
+
+%files plugin-videonode-egl
+%defattr(-,root,root,-)
+%{_libdir}/qt5/plugins/video/videonode/libeglvideonode.so
