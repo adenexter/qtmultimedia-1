@@ -45,6 +45,12 @@
 #include <qcamera.h>
 #include <qcamerafocuscontrol.h>
 
+#include <private/qgstreamerbufferprobe_p.h>
+
+#include <qbasictimer.h>
+#include <qmutex.h>
+#include <qvector.h>
+
 #include <gst/gst.h>
 #include <glib.h>
 
@@ -52,7 +58,7 @@ QT_BEGIN_NAMESPACE
 
 class CameraBinSession;
 
-class CameraBinFocus  : public QCameraFocusControl
+class CameraBinFocus  : public QCameraFocusControl, QGstreamerBufferProbe
 {
     Q_OBJECT
 
@@ -84,13 +90,19 @@ public Q_SLOTS:
 
     void setViewfinderResolution(const QSize &resolution);
 
+protected:
+    void timerEvent(QTimerEvent *event);
+
 private Q_SLOTS:
     void _q_setFocusStatus(QCamera::LockStatus status, QCamera::LockChangeReason reason);
     void _q_handleCameraStateChange(QCamera::State state);
+    void _q_updateFaces();
 
 private:
     void resetFocusPoint();
-    void updateRegionOfInterest(const QRectF &focusRect, int priority);
+    void updateRegionOfInterest(const QRectF &rectangle);
+    void updateRegionOfInterest(const QVector<QRect> &rectangles);
+    bool probeBuffer(GstBuffer *buffer);
 
     CameraBinSession *m_session;
     QCamera::State m_cameraState;
@@ -101,6 +113,10 @@ private:
     QPointF m_focusPoint;
     QRectF m_focusRect;
     QSize m_viewfinderResolution;
+    QVector<QRect> m_faces;
+    QVector<QRect> m_faceFocusRects;
+    QBasicTimer m_faceResetTimer;
+    mutable QMutex m_mutex;
 };
 
 QT_END_NAMESPACE
