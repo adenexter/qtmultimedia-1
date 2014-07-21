@@ -1,9 +1,7 @@
 
 TEMPLATE = subdirs
 SUBDIRS += \
-    qdeclarativemultimediaglobal \
-    qdeclarativeaudio \
-    qdeclarativecamera
+    qdeclarativeaudio
 
 disabled {
     SUBDIRS += \
